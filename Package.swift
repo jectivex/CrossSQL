@@ -21,7 +21,7 @@ let package = Package(
 )
 
 #if os(Linux)
-package.dependencies = [
+package.dependencies += [
     .package(url: "https://github.com/stephencelis/CSQLite.git", from: "0.0.3")
 ]
 package.targets.first?.dependencies += [
