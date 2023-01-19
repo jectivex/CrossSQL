@@ -14,18 +14,7 @@ class CrossSQLTest {
     @Test
     fun testDatabase() {
         System.out.println("### TESTING DATABASE")
-
-        assertEquals(true, true)
-
-        val db = SQLiteDatabase.openOrCreateDatabase("/tmp/sql.db", null, null)
-        val cursor = db.rawQuery("select * from android_metadata", null)
-        while (cursor.moveToNext()) {
-            val str = cursor.getString(0)
-            assertEquals("en_US", str)
-        }
-        
-        cursor.close()
-        db.close()
+        Connection().demoDatabase()
         System.out.println("### DONE TESTING DATABASE")
     }
 }

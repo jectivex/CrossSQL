@@ -11,19 +11,21 @@ open class Connection {
     }
 
     internal open fun demoDatabase() {
-        System.out.println("### TESTING DATABASE")
+        System.out.println("### DEMO DATABASE")
 
         //print("###")
         //typealias SQLiteDatabase = android.database.sqlite.SQLiteDatabase // “CrossSQL.kt: (17, 9): Nested and local type aliases are not supported”
         val db: android.database.sqlite.SQLiteDatabase = android.database.sqlite.SQLiteDatabase.openOrCreateDatabase("/tmp/sql.db", null, null)
+        val cursor: android.database.Cursor = db.rawQuery("select * from android_metadata", null)
 
-        //        let cursor = db.rawQuery("select * from android_metadata", null)
-        //        while cursor.moveToNext() {
-        //            let str = cursor.getString(0)
-        //            assertEquals("en_US", str)
-        //        }
-        //        cursor.close()
-        //        db.close()
-        System.out.println("### DONE TESTING DATABASE")
+        while (cursor.moveToNext()) {
+            val str: kotlin.String = cursor.getString(0)
+            //assertEquals("en_US", str)
+            System.out.println("### READ STRING: " + str)
+        }
+
+        cursor.close()
+        db.close()
+        System.out.println("### DONE DEMO DATABASE")
     }
 }

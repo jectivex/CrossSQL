@@ -1,9 +1,10 @@
 import XCTest
 import Skiff
+@testable import CrossSQL
 
 final class CrossFoundationTests: XCTestCase {
-    func testExample() throws {
-        XCTAssertTrue(true)
+    func testDemoDatabase() throws {
+        try Connection().demoDatabase()
     }
 
     func testTranspilation() throws {
