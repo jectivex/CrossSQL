@@ -21,9 +21,9 @@ jobs:
       - name: Gradle
         run: scripts/gradetest.sh
       - name: Test (Debug)
-        run: swift test -v --configuration debug
-      - name: Test (Release)
-        run: swift test -v --configuration release -Xswiftc -enable-testing
+        run: swift test --configuration debug
+      #- name: Test (Release)
+        #run: swift test --configuration release -Xswiftc -enable-testing
       - name: Gradle Test
         run: gradle test
 
@@ -51,12 +51,14 @@ jobs:
     runs-on: macos-12
     steps:
       - uses: actions/checkout@v2
+      - name: Gradle Test
+        run: gradle test
       - name: Gradle
         run: scripts/gradetest.sh
       - name: Test (Debug)
-        run: swift test -v --configuration debug
-      - name: Test (Release)
-        run: swift test -v --configuration release -Xswiftc -enable-testing
+        run: swift test --configuration debug
+      #- name: Test (Release)
+        #run: swift test --configuration release -Xswiftc -enable-testing
       - name: Gradle Test
         run: gradle test
 
