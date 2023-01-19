@@ -52,7 +52,7 @@ jobs:
     steps:
       - uses: actions/setup-java@v3
         with:
-          #distribution: 'temurin' # See 'Supported distributions' for available options
+          distribution: 'temurin'
           java-version: '11'
       - uses: actions/checkout@v2
       - name: Gradle Test
