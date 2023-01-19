@@ -14,7 +14,7 @@ class CrossSQLTest {
     @Test
     fun testDatabase() {
         System.out.println("### TESTING DATABASE")
-        Connection().demoDatabase()
+        Connection.demoDatabase()
         System.out.println("### DONE TESTING DATABASE")
     }
 }

@@ -4,7 +4,7 @@ import Skiff
 
 final class CrossFoundationTests: XCTestCase {
     func testDemoDatabase() throws {
-        try Connection().demoDatabase()
+        try Connection.demoDatabase()
     }
 
     func testTranspilation() throws {

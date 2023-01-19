@@ -1,35 +1,47 @@
 package CrossSQL
 
-import java.util.*
+import android.database.*
+import android.database.sqlite.*
 
-open class Connection {
-    constructor() {
+class Connection {
+    companion object {
+        internal fun demoDatabase() {
+            fun debug(value: String) {
+                System.out.println("DEBUG Kotlin: " + value)
+            }
+
+            val rnd: Int = Random().randomInt()
+            val dbname: String = "/tmp/demosql_${rnd}.db"
+            val conn: Connection = Connection(filename = dbname)
+
+            conn.execute(sql = "CREATE TABLE FOO(NAME VARCHAR)")
+            conn.close()
+        }
     }
 
-    open fun connect(path: String): Boolean {
-        return true
+    val db: SQLiteDatabase
+
+    constructor(filename: String, readonly: Boolean = false) {
+        this.db = SQLiteDatabase.openOrCreateDatabase(filename, null, null)
     }
 
-    internal open fun demoDatabase() {
-        fun debug(value: String) {
-            System.out.println("DEBUG Kotlin: " + value)
-        }
+    internal open fun close() {
+        this.db.close()
+    }
 
-        debug(value = "DEMO DATABASE")
+    // FIXME: no deinit support (“Unknown declaration (failed to translate SwiftSyntax node).”)
+    // deinit {
+    //    close()
+    // }
+    internal open fun execute(sql: String) {
+        db.execSQL(sql)
+    }
+}
 
-        //print("###")
-        //typealias SQLiteDatabase = android.database.sqlite.SQLiteDatabase // “CrossSQL.kt: (17, 9): Nested and local type aliases are not supported”
-        val db: android.database.sqlite.SQLiteDatabase = android.database.sqlite.SQLiteDatabase.openOrCreateDatabase("/tmp/sql.db", null, null)
-        val cursor: android.database.Cursor = db.rawQuery("select * from android_metadata", null)
+open class Random {
+    internal val random: java.util.Random = java.util.Random()
 
-        while (cursor.moveToNext()) {
-            val str: kotlin.String = cursor.getString(0)
-            //assertEquals("en_US", str)
-            debug("READ STRING: " + str)
-        }
-
-        cursor.close()
-        db.close()
-        debug(value = "DONE DEMO DATABASE")
+    open fun randomInt(): Int {
+        return Math.abs(random.nextInt())
     }
 }
