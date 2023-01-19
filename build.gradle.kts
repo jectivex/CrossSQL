@@ -1,3 +1,11 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+
 android {
     namespace = "CrossSQL"
 
