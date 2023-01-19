@@ -23,8 +23,17 @@ public class Connection {
     }
 
     func demoDatabase() throws {
+        func debug(_ value: String) {
+            #if KOTLIN
+            System.out.println("DEBUG Kotlin: " + value)
+            #else
+            print("DEBUG Swift:", value)
+            #endif
+        }
+
+        debug("DEMO DATABASE")
+
         #if KOTLIN
-        System.out.println("### DEMO DATABASE")
         //print("###")
         //typealias SQLiteDatabase = android.database.sqlite.SQLiteDatabase // “CrossSQL.kt: (17, 9): Nested and local type aliases are not supported”
         let db: android.database.sqlite.SQLiteDatabase = android.database.sqlite.SQLiteDatabase.openOrCreateDatabase("/tmp/sql.db", null, null)
@@ -33,18 +42,17 @@ public class Connection {
         while cursor.moveToNext() {
             let str: kotlin.String = cursor.getString(0)
             //assertEquals("en_US", str)
-            System.out.println("### READ STRING: " + str)
+            debug("READ STRING: " + str)
         }
 
-        
         cursor.close()
         db.close()
-        System.out.println("### DONE DEMO DATABASE")
         #else
 
-        print("### TODO: Swift tests for database")
+        // TODO: Swift version
 
         #endif
-    }
 
+        debug("DONE DEMO DATABASE")
+    }
 }
