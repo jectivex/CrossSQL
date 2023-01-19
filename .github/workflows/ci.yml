@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Gradle
+        run: scripts/gradetest.sh
       - name: Test (Debug)
         run: swift test -v --configuration debug
       - name: Test (Release)
@@ -49,6 +51,8 @@ jobs:
     runs-on: macos-12
     steps:
       - uses: actions/checkout@v2
+      - name: Gradle
+        run: scripts/gradetest.sh
       - name: Test (Debug)
         run: swift test -v --configuration debug
       - name: Test (Release)

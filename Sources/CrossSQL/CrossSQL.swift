@@ -1,8 +1,11 @@
 #if KOTLIN
 // gryphon insert: import java.util.*
 #else
-import Foundation
+#if os(Linux)
+import CSQLite
+#else
 import SQLite3
+#endif
 #endif
 
 public class Connection {
@@ -40,7 +43,7 @@ public class Connection {
         #else
 
         print("### TODO: Swift tests for database")
-        
+
         #endif
     }
 
