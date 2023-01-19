@@ -50,7 +50,7 @@ public class Connection {
         #else
 
         // TODO: Swift version
-
+        sqlite3_open("/tmp/sql.db", nil)
         #endif
 
         debug("DONE DEMO DATABASE")
