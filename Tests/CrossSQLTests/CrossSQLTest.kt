@@ -13,8 +13,6 @@ import android.database.sqlite.*
 class CrossSQLTest {
     @Test
     fun testDatabase() {
-        System.out.println("### TESTING DATABASE")
         Connection.demoDatabase()
-        System.out.println("### DONE TESTING DATABASE")
     }
 }
