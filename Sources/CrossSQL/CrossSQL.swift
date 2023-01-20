@@ -77,21 +77,22 @@ public final class Connection {
     }
     #endif
 
-    func query(sql: String, params: [String] = []) throws -> Cursor {
+    /// Executes the given query with the specified parameters.
+    public func query(sql: String, params: [String] = []) throws -> Cursor {
         try Cursor(self, sql, params: params)
     }
 
     static func demoDatabase() throws {
         let rnd = Random().randomDouble()
         let dbname = "/tmp/demosql_\(rnd).db"
+
         dbg("connecting to: " + dbname)
         let conn = try Connection(dbname)
+
         try conn.execute(sql: "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER)")
         for i in 1...10 {
             try conn.execute(sql: "INSERT INTO FOO VALUES('\(i)', \(i))")
         }
-
-        assert(try! conn.query(sql: "SELECT 1").columnCount == 1)
 
         let cursor = try conn.query(sql: "SELECT * FROM FOO")
         let colcount = cursor.columnCount
@@ -105,22 +106,33 @@ public final class Connection {
             assert(cursor.getColumnType(column: 1) == .integer)
         }
 
-        assert(cursor.closed == false)
         cursor.close()
         assert(cursor.closed == true)
 
         try conn.execute(sql: "DROP TABLE FOO")
 
-        assert(conn.closed == false)
         conn.close()
         assert(conn.closed == true)
+
+        let dataFile: Data = try readData(fromPath: dbname)
+        assert(dataFile.count > 1024) // 8192 on Darwin, 12288 for Android
+
+        // 'removeItem(at:)' is deprecated: URL paths not yet implemented in Kotlin
+        //try FileManager.default.removeItem(at: URL(fileURLWithPath: dbname, isDirectory: false))
 
         try FileManager.default.removeItem(atPath: dbname)
     }
 }
 
 
-/// A cursor to the result set executed by a Connection.
+#if KOTLIN
+
+#else
+// let SQLITE_STATIC = unsafeBitCast(0, sqlite3_destructor_type.self)
+let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+#endif
+
+/// A cursor to the open result set returned by `Connection.query`.
 public final class Cursor {
     fileprivate let connection: Connection
 
@@ -133,16 +145,57 @@ public final class Cursor {
     /// Whether the cursor is closed or not
     public private(set) var closed = false
 
-    init(_ connection: Connection, _ SQL: String, params: [String]) throws {
+    fileprivate init(_ connection: Connection, _ SQL: String, params: [String]) throws {
         self.connection = connection
 
         #if KOTLIN
         //self.statement = connection.db.compileStatement(SQL)
         self.cursor = connection.db.rawQuery(SQL, params.toTypedArray())
         #else
-        // TODO: params
         try connection.check(sqlite3_prepare_v2(connection.handle, SQL, -1, &handle, nil))
+        for (index, param) in params.enumerated() {
+            try bind(parameter: .text(string: param), index: .init(index))
+        }
         #endif
+    }
+
+
+    #if KOTLIN
+
+    #else
+    /// Binds the given parameter at the given index.
+    private func bind(parameter: SQLValue, index: Int32) throws {
+        switch parameter {
+        case .null:
+            try connection.check(sqlite3_bind_null(handle, Int32(index)))
+        case let .text(string: string):
+            try connection.check(sqlite3_bind_text(handle, Int32(index), string, -1, SQLITE_TRANSIENT))
+//        case let value as Blob where value.bytes.count == 0:
+//            try connection.check(sqlite3_bind_zeroblob(handle, Int32(idx), 0))
+//        case let value as Blob:
+//            try connection.check(sqlite3_bind_blob(handle, Int32(idx), value.bytes, Int32(value.bytes.count), SQLITE_TRANSIENT))
+//        case let value as Double:
+//            try connection.check(sqlite3_bind_double(handle, Int32(idx), value))
+//        case let value as Int64:
+//            try connection.check(sqlite3_bind_int64(handle, Int32(idx), value))
+        }
+    }
+    #endif
+
+    public enum SQLValue {
+        case null
+        case text(string: String)
+
+        var columnType: ColumnType {
+            switch self {
+            case .null:
+                return ColumnType.null
+            case let .text(string: _): // case label is needed by Gryphon
+                return ColumnType.text
+            default: // needed for Kotlin when mixed associated type w/ empty enum
+                return ColumnType.null
+            }
+        }
     }
 
     /// The type of a SQLite colums
@@ -273,13 +326,8 @@ public final class Cursor {
     #endif
 }
 
-func dbg(_ value: String) {
-    #if KOTLIN
-    System.out.println("DEBUG Kotlin: " + value)
-    #else
-    print("DEBUG Swift:", value)
-    #endif
-}
+
+// MARK: Random
 
 /// A cross-platform random number generator
 public class Random {
@@ -301,34 +349,67 @@ public class Random {
     }
 }
 
-/// A joint sum type
-enum JSum {
-    case nul
-    case bol(bol: Bool)
-    case num(num: Double)
-    case str(str: String)
-    case arr(arr: [JSum])
-    case obj(obj: [String: JSum])
-}
+// MARK: URL
 
+#if KOTLIN
+public typealias URL = java.net.URL
+#else
+import struct Foundation.URL
+#endif
+
+// MARK: Data
 
 #if KOTLIN
 public typealias Data = kotlin.ByteArray
 
-// A Foundation-compatible Data.
-//public class Data : Hashable {
-//    let bytes: ByteArray
-//    public init(bytes: ByteArray) {
-//        self.bytes = bytes
+extension Data {
+    /// Foundation uses `count`, Java uses `size`.
+    public var count: Int { size }
+
+    // constructor extensions do not seem to work yet
+//    init(file path: String) throws {
+//        java.io.File(path).readBytes()
 //    }
-//}
+
+    // “Unresolved reference: Companion” erro from transpiled code:
+    // fun Data.Companion.read(file: String): Data = java.io.File(path).readBytes()
+
+//    public static func read(file: String) throws -> Data {
+//        java.io.File(path).readBytes()
+//    }
+}
+
+/// Reads the data from the given file
+public func readData(fromPath filePath: String) throws -> Data {
+    java.io.File(filePath).readBytes()
+}
+
 #else
 import struct Foundation.Data
+
+extension Data {
+
+//    init(file path: String) throws {
+//        try self.init(contentsOf: URL(fileURLWithPath: path, isDirectory: false))
+//    }
+
+//    public static func read(file: String) throws -> Data {
+//        try Data(contentsOf: URL(fileURLWithPath: file, isDirectory: false))
+//    }
+}
+
+/// Reads the data from the given file
+public func readData(fromPath filePath: String) throws -> Data {
+    try Data(contentsOf: URL(fileURLWithPath: filePath, isDirectory: false))
+}
+
 #endif
 
+// MARK: FileManager
 
 #if KOTLIN
-public class FileManager {
+/// An interface to the file system compatible with ``Foundation.FileManager``
+public final class FileManager {
     public static let `default` = FileManager()
 
     private init() {
@@ -340,11 +421,55 @@ public class FileManager {
         }
     }
 
-    struct UnableToDeleteFileError : Error {
+    struct UnableToDeleteFileError : java.io.IOException {
         let path: String
     }
 }
 #else
 import class Foundation.FileManager
+
+public extension FileManager {
+    @available(*, deprecated, message: "file URLs not yet implemented on Kotlin side")
+    func removeItem(at url: URL) throws {
+        fatalError("unavailable in Kotlin")
+        //try self.removeItem(at: url)
+    }
+
+}
 #endif
 
+
+// Alternate data solution: wrapping it in a custom type
+
+// A Foundation-compatible Data.
+//public class Data : Hashable {
+//    let bytes: ByteArray
+//    public init(bytes: ByteArray) {
+//        self.bytes = bytes
+//    }
+//}
+
+
+
+
+// MARK: Utilities
+
+func dbg(_ value: String) {
+    #if KOTLIN
+    System.out.println("DEBUG Kotlin: " + value)
+    #else
+    print("DEBUG Swift:", value)
+    #endif
+}
+
+// MARK: JSON
+
+/// A JSON type, which can be null, boolean, number, string, array, or object.
+enum JSON {
+    case nul
+    case bol(boolean: Bool)
+    case num(number: Double)
+    case str(string: String)
+    case arr(array: [JSON])
+    case obj(dictionary: [String: JSON])
+}

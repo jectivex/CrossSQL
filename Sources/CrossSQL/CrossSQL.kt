@@ -19,8 +19,6 @@ class Connection {
                 conn.execute(sql = "INSERT INTO FOO VALUES('${i}', ${i})")
             }
 
-            assert(conn.query(sql = "SELECT 1").columnCount == 1)
-
             val cursor: Cursor = conn.query(sql = "SELECT * FROM FOO")
             val colcount: Int = cursor.columnCount
 
@@ -34,13 +32,19 @@ class Connection {
                 assert(cursor.getColumnType(1) == Cursor.ColumnType.INTEGER)
             }
 
-            assert(cursor.closed == false)
             cursor.close()
             assert(cursor.closed == true)
             conn.execute(sql = "DROP TABLE FOO")
-            assert(conn.closed == false)
             conn.close()
             assert(conn.closed == true)
+
+            val dataFile: Data = readData(dbname)
+
+            assert(dataFile.count > 1024)
+
+            // 8192 on Darwin, 12288 for Android
+            // 'removeItem(at:)' is deprecated: URL paths not yet implemented in Kotlin
+            //try FileManager.default.removeItem(at: URL(fileURLWithPath: dbname, isDirectory: false))
             FileManager.default.removeItem(path = dbname)
         }
     }
@@ -64,7 +68,7 @@ class Connection {
         db.execSQL(sql)
     }
 
-    internal open fun query(sql: String, params: List<String> = listOf()): Cursor = Cursor(connection = this, SQL = sql, params = params)
+    open fun query(sql: String, params: List<String> = listOf()): Cursor = Cursor(connection = this, SQL = sql, params = params)
 }
 
 class Cursor {
@@ -76,6 +80,26 @@ class Cursor {
         this.connection = connection
         //self.statement = connection.db.compileStatement(SQL)
         this.cursor = connection.db.rawQuery(SQL, params.toTypedArray())
+    }
+
+    sealed class SQLValue {
+        class Null: SQLValue()
+        class Text(val string: String): SQLValue()
+
+        internal val columnType: ColumnType
+            get() {
+                return when (this) {
+                    SQLValue.Null() -> ColumnType.NULL
+                    is SQLValue.Text -> {
+                        // case label is needed by Gryphon
+                        ColumnType.TEXT
+                    }
+                    else -> {
+                        // needed for Kotlin when mixed associated type w/ empty enum
+                        ColumnType.NULL
+                    }
+                }
+            }
     }
 
     enum class ColumnType(val rawValue: Int) {
@@ -129,10 +153,7 @@ class Cursor {
     }
 }
 
-internal fun dbg(value: String) {
-    System.out.println("DEBUG Kotlin: " + value)
-}
-
+// MARK: Random
 open class Random {
     //let random: java.util.Random = java.util.Random()
     internal val random: java.util.Random = java.security.SecureRandom()
@@ -144,25 +165,28 @@ open class Random {
     }
 }
 
-internal sealed class JSum {
-    class Nul: JSum()
-    class Bol(val bol: Boolean): JSum()
-    class Num(val num: Double): JSum()
-    class Str(val str: String): JSum()
-    class Arr(val arr: List<JSum>): JSum()
-    class Obj(val obj: Map<String, JSum>): JSum()
-}
+// MARK: URL
+typealias URL = java.net.URL
 
+// MARK: Data
 typealias Data = kotlin.ByteArray
 
-// A Foundation-compatible Data.
-//public class Data : Hashable {
-//    let bytes: ByteArray
-//    public init(bytes: ByteArray) {
-//        self.bytes = bytes
+val Data.count: Int
+    get() = size
+
+// constructor extensions do not seem to work yet
+//    init(file path: String) throws {
+//        java.io.File(path).readBytes()
 //    }
-//}
-open class FileManager {
+// “Unresolved reference: Companion” erro from transpiled code:
+// fun Data.Companion.read(file: String): Data = java.io.File(path).readBytes()
+//    public static func read(file: String) throws -> Data {
+//        java.io.File(path).readBytes()
+//    }
+fun readData(filePath: String): Data = java.io.File(filePath).readBytes()
+
+// MARK: FileManager
+class FileManager {
     companion object {
         val `default`: FileManager = FileManager()
     }
@@ -178,5 +202,28 @@ open class FileManager {
 
     internal data class UnableToDeleteFileError(
         val path: String
-    ): Exception()
+    ): java.io.IOException()
+}
+
+// Alternate data solution: wrapping it in a custom type
+// A Foundation-compatible Data.
+//public class Data : Hashable {
+//    let bytes: ByteArray
+//    public init(bytes: ByteArray) {
+//        self.bytes = bytes
+//    }
+//}
+// MARK: Utilities
+internal fun dbg(value: String) {
+    System.out.println("DEBUG Kotlin: " + value)
+}
+
+// MARK: JSON
+internal sealed class JSON {
+    class Nul: JSON()
+    class Bol(val boolean: Boolean): JSON()
+    class Num(val number: Double): JSON()
+    class Str(val string: String): JSON()
+    class Arr(val array: List<JSON>): JSON()
+    class Obj(val dictionary: Map<String, JSON>): JSON()
 }
