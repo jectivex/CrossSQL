@@ -3,11 +3,11 @@ import Skiff
 @testable import CrossSQL
 
 final class CrossFoundationTests: XCTestCase {
-    func testDemoDatabase() throws {
+    func testSwiftSQLConnection() throws {
         try Connection.demoDatabase()
     }
 
-    func testTranspilation() throws {
+    func testKotlinSQLConnection() throws {
         try Skiff().transpileAndTest()
     }
 }

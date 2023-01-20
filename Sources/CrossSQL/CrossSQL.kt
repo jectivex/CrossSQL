@@ -5,47 +5,7 @@ import android.database.sqlite.*
 
 class Connection {
     companion object {
-        internal fun demoDatabase() {
-            val rnd: Double = Random().randomDouble()
-            val dbname: String = "/tmp/demosql_${rnd}.db"
-
-            dbg(value = "connecting to: " + dbname)
-
-            val conn: Connection = Connection(filename = dbname)
-
-            conn.execute(sql = "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER)")
-
-            for (i in 1..10) {
-                conn.execute(sql = "INSERT INTO FOO VALUES('${i}', ${i})")
-            }
-
-            val cursor: Cursor = conn.query(sql = "SELECT * FROM FOO")
-            val colcount: Int = cursor.columnCount
-
-            dbg(value = "columns: ${colcount}")
-            assert(colcount == 2)
-
-            while (cursor.next()) {
-                assert(cursor.getColumnName(column = 0) == "NAME")
-                assert(cursor.getColumnType(0) == Cursor.ColumnType.TEXT)
-                assert(cursor.getColumnName(column = 1) == "NUM")
-                assert(cursor.getColumnType(1) == Cursor.ColumnType.INTEGER)
-            }
-
-            cursor.close()
-            assert(cursor.closed == true)
-            conn.execute(sql = "DROP TABLE FOO")
-            conn.close()
-            assert(conn.closed == true)
-
-            val dataFile: Data = readData(dbname)
-
-            assert(dataFile.count > 1024)
-
-            // 8192 on Darwin, 12288 for Android
-            // 'removeItem(at:)' is deprecated: URL paths not yet implemented in Kotlin
-            //try FileManager.default.removeItem(at: URL(fileURLWithPath: dbname, isDirectory: false))
-            FileManager.default.removeItem(path = dbname)
+        private fun noop() {
         }
     }
 
@@ -69,6 +29,8 @@ class Connection {
     }
 
     open fun query(sql: String, params: List<String> = listOf()): Cursor = Cursor(connection = this, SQL = sql, params = params)
+
+    // some random static function is needed to get Gryphon to generate a Companion object to extend (below)
 }
 
 class Cursor {
@@ -174,15 +136,6 @@ typealias Data = kotlin.ByteArray
 val Data.count: Int
     get() = size
 
-// constructor extensions do not seem to work yet
-//    init(file path: String) throws {
-//        java.io.File(path).readBytes()
-//    }
-// “Unresolved reference: Companion” erro from transpiled code:
-// fun Data.Companion.read(file: String): Data = java.io.File(path).readBytes()
-//    public static func read(file: String) throws -> Data {
-//        java.io.File(path).readBytes()
-//    }
 fun readData(filePath: String): Data = java.io.File(filePath).readBytes()
 
 // MARK: FileManager
@@ -226,4 +179,50 @@ internal sealed class JSON {
     class Str(val string: String): JSON()
     class Arr(val array: List<JSON>): JSON()
     class Obj(val dictionary: Map<String, JSON>): JSON()
+}
+
+// MARK: Unconditional Swift/Kotlin
+internal fun Connection.Companion.demoDatabase() {
+    val rnd: Double = Random().randomDouble()
+
+    //let rnd = Double.random(in: 0..<1)
+    val dbname: String = "/tmp/demosql_${rnd}.db"
+
+    dbg(value = "connecting to: " + dbname)
+
+    val conn: Connection = Connection(filename = dbname)
+
+    conn.execute(sql = "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER)")
+
+    for (i in 1..10) {
+        conn.execute(sql = "INSERT INTO FOO VALUES('${i}', ${i})")
+    }
+
+    val cursor: Cursor = conn.query(sql = "SELECT * FROM FOO")
+    val colcount: Int = cursor.columnCount
+
+    dbg(value = "columns: ${colcount}")
+    assert(colcount == 2)
+
+    while (cursor.next()) {
+        assert(cursor.getColumnName(column = 0) == "NAME")
+        assert(cursor.getColumnType(0) == Cursor.ColumnType.TEXT)
+        assert(cursor.getColumnName(column = 1) == "NUM")
+        assert(cursor.getColumnType(1) == Cursor.ColumnType.INTEGER)
+    }
+
+    cursor.close()
+    assert(cursor.closed == true)
+    conn.execute(sql = "DROP TABLE FOO")
+    conn.close()
+    assert(conn.closed == true)
+
+    val dataFile: Data = readData(dbname)
+
+    assert(dataFile.count > 1024)
+
+    // 8192 on Darwin, 12288 for Android
+    // 'removeItem(at:)' is deprecated: URL paths not yet implemented in Kotlin
+    //try FileManager.default.removeItem(at: URL(fileURLWithPath: dbname, isDirectory: false))
+    FileManager.default.removeItem(path = dbname)
 }

@@ -82,45 +82,8 @@ public final class Connection {
         try Cursor(self, sql, params: params)
     }
 
-    static func demoDatabase() throws {
-        let rnd = Random().randomDouble()
-        let dbname = "/tmp/demosql_\(rnd).db"
-
-        dbg("connecting to: " + dbname)
-        let conn = try Connection(dbname)
-
-        try conn.execute(sql: "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER)")
-        for i in 1...10 {
-            try conn.execute(sql: "INSERT INTO FOO VALUES('\(i)', \(i))")
-        }
-
-        let cursor = try conn.query(sql: "SELECT * FROM FOO")
-        let colcount = cursor.columnCount
-        dbg("columns: \(colcount)")
-        assert(colcount == 2)
-
-        while try cursor.next() {
-            assert(cursor.getColumnName(column: 0) == "NAME")
-            assert(cursor.getColumnType(column: 0) == .text)
-            assert(cursor.getColumnName(column: 1) == "NUM")
-            assert(cursor.getColumnType(column: 1) == .integer)
-        }
-
-        cursor.close()
-        assert(cursor.closed == true)
-
-        try conn.execute(sql: "DROP TABLE FOO")
-
-        conn.close()
-        assert(conn.closed == true)
-
-        let dataFile: Data = try readData(fromPath: dbname)
-        assert(dataFile.count > 1024) // 8192 on Darwin, 12288 for Android
-
-        // 'removeItem(at:)' is deprecated: URL paths not yet implemented in Kotlin
-        //try FileManager.default.removeItem(at: URL(fileURLWithPath: dbname, isDirectory: false))
-
-        try FileManager.default.removeItem(atPath: dbname)
+    // some random static function is needed to get Gryphon to generate a Companion object to extend (below)
+    private static func noop() throws {
     }
 }
 
@@ -365,18 +328,6 @@ public typealias Data = kotlin.ByteArray
 extension Data {
     /// Foundation uses `count`, Java uses `size`.
     public var count: Int { size }
-
-    // constructor extensions do not seem to work yet
-//    init(file path: String) throws {
-//        java.io.File(path).readBytes()
-//    }
-
-    // “Unresolved reference: Companion” erro from transpiled code:
-    // fun Data.Companion.read(file: String): Data = java.io.File(path).readBytes()
-
-//    public static func read(file: String) throws -> Data {
-//        java.io.File(path).readBytes()
-//    }
 }
 
 /// Reads the data from the given file
@@ -386,17 +337,6 @@ public func readData(fromPath filePath: String) throws -> Data {
 
 #else
 import struct Foundation.Data
-
-extension Data {
-
-//    init(file path: String) throws {
-//        try self.init(contentsOf: URL(fileURLWithPath: path, isDirectory: false))
-//    }
-
-//    public static func read(file: String) throws -> Data {
-//        try Data(contentsOf: URL(fileURLWithPath: file, isDirectory: false))
-//    }
-}
 
 /// Reads the data from the given file
 public func readData(fromPath filePath: String) throws -> Data {
@@ -472,4 +412,51 @@ enum JSON {
     case str(string: String)
     case arr(array: [JSON])
     case obj(dictionary: [String: JSON])
+}
+
+// MARK: Unconditional Swift/Kotlin
+
+extension Connection {
+    static func demoDatabase() throws {
+        let rnd = Random().randomDouble()
+        //let rnd = Double.random(in: 0..<1)
+
+        let dbname = "/tmp/demosql_\(rnd).db"
+
+        dbg("connecting to: " + dbname)
+        let conn = try Connection(dbname)
+
+        try conn.execute(sql: "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER)")
+        for i in 1...10 {
+            try conn.execute(sql: "INSERT INTO FOO VALUES('\(i)', \(i))")
+        }
+
+        let cursor = try conn.query(sql: "SELECT * FROM FOO")
+        let colcount = cursor.columnCount
+        dbg("columns: \(colcount)")
+        assert(colcount == 2)
+
+        while try cursor.next() {
+            assert(cursor.getColumnName(column: 0) == "NAME")
+            assert(cursor.getColumnType(column: 0) == .text)
+            assert(cursor.getColumnName(column: 1) == "NUM")
+            assert(cursor.getColumnType(column: 1) == .integer)
+        }
+
+        cursor.close()
+        assert(cursor.closed == true)
+
+        try conn.execute(sql: "DROP TABLE FOO")
+
+        conn.close()
+        assert(conn.closed == true)
+
+        let dataFile: Data = try readData(fromPath: dbname)
+        assert(dataFile.count > 1024) // 8192 on Darwin, 12288 for Android
+
+        // 'removeItem(at:)' is deprecated: URL paths not yet implemented in Kotlin
+        //try FileManager.default.removeItem(at: URL(fileURLWithPath: dbname, isDirectory: false))
+
+        try FileManager.default.removeItem(atPath: dbname)
+    }
 }
