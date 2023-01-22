@@ -16,7 +16,10 @@ let package = Package(
     ],
     targets: [
         .target(name: "CrossSQL", dependencies: [], resources: [.process("i18n"), .copy("Resources")]),
-        .testTarget(name: "CrossSQLTests", dependencies: ["CrossSQL", "Skiff"]),
+        .testTarget(name: "CrossSQLTests", dependencies: [
+            "CrossSQL",
+            .product(name: "Skiff", package: "Skiff", condition: .when(platforms: [.macOS, .linux]))
+        ]),
     ]
 )
 
