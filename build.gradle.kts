@@ -1,6 +1,7 @@
 buildDir = file(".build") // same as SPM
 
 plugins {
+    id("org.jetbrains.kotlin.android") version "1.7.+"
     id("com.android.library") version "7.+"
 }
 
@@ -12,6 +13,9 @@ repositories {
 dependencies {
     testImplementation("junit:junit:4.+")
     testImplementation("org.robolectric:robolectric:4.+")
+
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:+")
+
 }
 
 android {
