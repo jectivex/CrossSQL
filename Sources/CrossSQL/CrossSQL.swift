@@ -11,7 +11,7 @@ import SQLite3
 
 /// A connection to SQLite.
 public final class Connection {
-    #if KOTLIN
+    #if os(Android)
     public let db: android.database.sqlite.SQLiteDatabase
     #else
     public typealias Handle = OpaquePointer
@@ -23,7 +23,7 @@ public final class Connection {
     public private(set) var closed = false
 
     public init(_ filename: String, readonly: Bool = false) throws {
-        #if KOTLIN
+        #if os(Android)
         self.db = SQLiteDatabase.openOrCreateDatabase(filename, null, null)
         #else
         let flags = readonly ? SQLITE_OPEN_READONLY : (SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE)
@@ -32,7 +32,7 @@ public final class Connection {
     }
 
     // FIXME: no deinit support in Kotlin (“Unknown declaration (failed to translate SwiftSyntax node).”)
-    #if KOTLIN
+    #if os(Android)
 
     #else
     deinit {
@@ -43,7 +43,7 @@ public final class Connection {
     /// Closes the connection to the database
     func close() {
         if !closed {
-            #if KOTLIN
+            #if os(Android)
             self.db.close()
             #else
             sqlite3_close(handle)
@@ -54,7 +54,7 @@ public final class Connection {
 
     /// Executes a single SQL statement.
     public func execute(sql: String, params: [SQLValue] = []) throws {
-        #if KOTLIN
+        #if os(Android)
         let bindArgs = params.map { $0.toBindArg() }
         db.execSQL(sql, bindArgs.toTypedArray())
         #else
@@ -67,7 +67,7 @@ public final class Connection {
         #endif
     }
 
-    #if KOTLIN
+    #if os(Android)
 
     #else
     @discardableResult fileprivate func check(resultOf resultCode: Int32) throws -> Int32 {
@@ -94,7 +94,7 @@ public final class Connection {
     private static func noop() throws {
     }
 
-    #if KOTLIN
+    #if os(Android)
 
     #else
     /// Binds the given parameter at the given index.
@@ -127,7 +127,7 @@ public final class Connection {
 }
 
 
-#if KOTLIN
+#if os(Android)
 
 #else
 // let SQLITE_STATIC = unsafeBitCast(0, sqlite3_destructor_type.self)
@@ -228,7 +228,7 @@ public enum ColumnType : Int32 {
 public final class Cursor {
     fileprivate let connection: Connection
 
-    #if KOTLIN
+    #if os(Android)
     fileprivate var cursor: android.database.Cursor
     #else
     typealias Handle = OpaquePointer
@@ -247,7 +247,7 @@ public final class Cursor {
 //            }
 //        }
         
-        #if KOTLIN
+        #if os(Android)
         let bindArgs = params.map { $0.toBindArg() }
         var bindArgStrings: [String] = []
 //        bindArgStrings = bindArgs.map { $0?.description as String? }
@@ -266,7 +266,7 @@ public final class Cursor {
 
 
     var columnCount: Int32 {
-        #if KOTLIN
+        #if os(Android)
         self.cursor.getColumnCount()
         #else
         sqlite3_column_count(handle)
@@ -275,7 +275,7 @@ public final class Cursor {
 
     /// Moves to the next row in the result set, returning `false` if there are no more rows to traverse.
     func next() throws -> Bool {
-        #if KOTLIN
+        #if os(Android)
         self.cursor.moveToNext()
         #else
         try connection.check(resultOf: sqlite3_step(handle)) == SQLITE_ROW
@@ -284,7 +284,7 @@ public final class Cursor {
 
     /// Returns the name of the column at the given zero-based index.
     public func getColumnName(column: Int32) -> String {
-        #if KOTLIN
+        #if os(Android)
         self.cursor.getColumnName(column)
         #else
         String(cString: sqlite3_column_name(handle, column))
@@ -349,7 +349,7 @@ public final class Cursor {
     }
 
     public func getDouble(column: Int32) -> Double {
-        #if KOTLIN
+        #if os(Android)
         self.cursor.getDouble(column)
         #else
         sqlite3_column_double(handle, column)
@@ -357,7 +357,7 @@ public final class Cursor {
     }
 
     public func getInt64(column: Int32) -> Int64 {
-        #if KOTLIN
+        #if os(Android)
         self.cursor.getLong(column)
         #else
         sqlite3_column_int64(handle, column)
@@ -365,7 +365,7 @@ public final class Cursor {
     }
 
     public func getString(column: Int32) -> String {
-        #if KOTLIN
+        #if os(Android)
         self.cursor.getString(column)
         #else
         String(cString: UnsafePointer(sqlite3_column_text(handle, Int32(column))))
@@ -373,7 +373,7 @@ public final class Cursor {
     }
 
     public func getBlob(column: Int32) -> Data {
-        #if KOTLIN
+        #if os(Android)
         return self.cursor.getBlob(column)
         #else
         if let pointer = sqlite3_column_blob(handle, Int32(column)) {
@@ -388,7 +388,7 @@ public final class Cursor {
     }
 
     private func getTypeConstant(column: Int32) -> Int32 {
-        #if KOTLIN
+        #if os(Android)
         self.cursor.getType(column)
         #else
         sqlite3_column_type(handle, column)
@@ -397,7 +397,7 @@ public final class Cursor {
 
     func close() throws {
         if !closed {
-            #if KOTLIN
+            #if os(Android)
             self.cursor.close()
             #else
             try connection.check(resultOf: sqlite3_finalize(handle))
@@ -406,7 +406,7 @@ public final class Cursor {
         closed = true
     }
 
-    #if KOTLIN
+    #if os(Android)
     // TODO: finalize { close() }
     #else
     deinit {
@@ -420,7 +420,7 @@ public final class Cursor {
 
 /// A cross-platform random number generator
 public class Random {
-    #if KOTLIN
+    #if os(Android)
     //let random: java.util.Random = java.util.Random()
     let random: java.util.Random = java.security.SecureRandom()
     #else
@@ -428,7 +428,7 @@ public class Random {
     #endif
 
     public func randomDouble() -> Double {
-        #if KOTLIN
+        #if os(Android)
         // Returns the next pseudorandom, uniformly distributed double value between 0.0 and 1.0 from this random number generator's sequence.
         // The general contract of nextDouble is that one double value, chosen (approximately) uniformly from the range 0.0d (inclusive) to 1.0d (exclusive), is pseudorandomly generated and returned.
         return random.nextDouble()
@@ -440,7 +440,7 @@ public class Random {
 
 // MARK: URL
 
-#if KOTLIN
+#if os(Android)
 public typealias URL = java.net.URL
 #else
 import struct Foundation.URL
@@ -455,7 +455,7 @@ extension URL {
 
 // MARK: Data
 
-#if KOTLIN
+#if os(Android)
 public typealias Data = kotlin.ByteArray
 
 extension Data {
@@ -480,7 +480,7 @@ public func readData(fromPath filePath: String) throws -> Data {
 
 // MARK: FileManager
 
-#if KOTLIN
+#if os(Android)
 /// An interface to the file system compatible with ``Foundation.FileManager``
 public final class FileManager {
     public static let `default` = FileManager()
@@ -525,18 +525,19 @@ public extension FileManager {
 
 // MARK: Async / Coroutines
 
-#if KOTLIN
-/// An interface to the file system compatible with ``Foundation.FileManager``
-public final class URLSession {
-    public static let shared = URLSession()
+#if os(Android)
 
-    private init() {
-    }
-
-    public func fetch(url: URL) async throws -> String {
-        ""
-    }
-}
+///// An interface to the file system compatible with ``Foundation.FileManager``
+//public final class URLSession {
+//    public static let shared = URLSession()
+//
+//    private init() {
+//    }
+//
+//    public func fetch(url: URL) async throws -> String {
+//        ""
+//    }
+//}
 
 //private suspend fun getWebText(url: URL): String = withContext(Dispatchers.IO) {
 //    url.run {
@@ -557,7 +558,6 @@ private func download(url: URL) {
         //}
     //}
 }
-
 
 
 #else
@@ -581,7 +581,7 @@ public extension URLSession {
 // MARK: Utilities
 
 func dbg(_ value: String) {
-    #if KOTLIN
+    #if os(Android)
     System.out.println("DEBUG Kotlin: " + value)
     #else
     print("DEBUG Swift:", value)
@@ -665,14 +665,14 @@ extension Connection {
     static func demoDatabaseAsync() async throws {
         dbg("ASYNC TEST")
         // FIXME: not really async
-        let url: URL = URL("https://www.example.org")
+//        let url: URL = URL("https://www.example.org")
 
-        let session = URLSession.shared
+//        let session = URLSession.shared
 //        let contents = try await session.fetch(url: url)
 
         //let contents: String = try String(from: url)
 
-        #if KOTLIN
+        #if os(Android)
             //typealias XXX = java.net.URL
 
 //        let url: java.net.URL! = java.net.URL(string: x)
