@@ -560,6 +560,9 @@ private func download(url: URL) {
 }
 
 
+#elseif canImport(FoundationNetworking)
+import class FoundationNetworking.URLSession
+
 #else
 import class Foundation.URLSession
 
