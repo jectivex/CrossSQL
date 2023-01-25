@@ -278,36 +278,6 @@ class FileManager {
 //        self.bytes = bytes
 //    }
 //}
-// MARK: Async / Coroutines
-//public final class URLSession {
-//    public static let shared = URLSession()
-//
-//    private init() {
-//    }
-//
-//    public func fetch(url: URL) async throws -> String {
-//        ""
-//    }
-//}
-//private suspend fun getWebText(url: URL): String = withContext(Dispatchers.IO) {
-//    url.run {
-//        val connection = openConnection() // as HttpURLConnection
-//        val stream = connection.inputStream
-//        val text = stream.bufferedReader().use(BufferedReader::readText)
-//        text
-//    }
-//}
-private fun download(url: URL) {
-    //withContext(Dispatchers.IO) {
-    //url.run {
-    //    let connection = openConnection() // as HttpURLConnection
-    //    let stream = connection.inputStream
-    //    let text = stream.bufferedReader().use(BufferedReader.readText)
-    //    return text
-    //}
-    //}
-}
-
 // MARK: Utilities
 internal fun dbg(value: String) {
     System.out.println("DEBUG Kotlin: " + value)
@@ -387,11 +357,9 @@ internal fun Connection.Companion.demoDatabaseAsync() {
     dbg(value = "ASYNC TEST")
 
     // FIXME: not really async
-    //        let url: URL = URL("https://www.example.org")
-    //        let session = URLSession.shared
-    //        let contents = try await session.fetch(url: url)
+    // let url: URL = URL("https://www.example.org")
+    // let session = URLSession.shared
+    // let contents = try await session.fetch(url: url)
     //let contents: String = try String(from: url)
-    //typealias XXX = java.net.URL
-    //        let url: java.net.URL! = java.net.URL(string: x)
     //assert(contents.contains("Example Domain"))
 }

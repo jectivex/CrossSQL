@@ -523,63 +523,6 @@ public extension FileManager {
 //}
 
 
-// MARK: Async / Coroutines
-
-#if os(Android)
-
-///// An interface to the file system compatible with ``Foundation.FileManager``
-//public final class URLSession {
-//    public static let shared = URLSession()
-//
-//    private init() {
-//    }
-//
-//    public func fetch(url: URL) async throws -> String {
-//        ""
-//    }
-//}
-
-//private suspend fun getWebText(url: URL): String = withContext(Dispatchers.IO) {
-//    url.run {
-//        val connection = openConnection() // as HttpURLConnection
-//        val stream = connection.inputStream
-//        val text = stream.bufferedReader().use(BufferedReader::readText)
-//        text
-//    }
-//}
-
-private func download(url: URL) {
-    //withContext(Dispatchers.IO) {
-        //url.run {
-        //    let connection = openConnection() // as HttpURLConnection
-        //    let stream = connection.inputStream
-        //    let text = stream.bufferedReader().use(BufferedReader.readText)
-        //    return text
-        //}
-    //}
-}
-
-
-#elseif canImport(FoundationNetworking)
-import class FoundationNetworking.URLSession
-
-#else
-import class Foundation.URLSession
-
-public extension URLSession {
-    func fetch(url: URL) async throws -> String {
-        ""
-    }
-}
-
-//public extension String {
-//    init(from url: URL) {
-//        self = url.absoluteString
-//    }
-//}
-#endif
-
-
 
 // MARK: Utilities
 
@@ -668,20 +611,13 @@ extension Connection {
     static func demoDatabaseAsync() async throws {
         dbg("ASYNC TEST")
         // FIXME: not really async
-//        let url: URL = URL("https://www.example.org")
+        // let url: URL = URL("https://www.example.org")
 
-//        let session = URLSession.shared
-//        let contents = try await session.fetch(url: url)
+        // let session = URLSession.shared
+        // let contents = try await session.fetch(url: url)
 
         //let contents: String = try String(from: url)
 
-        #if os(Android)
-            //typealias XXX = java.net.URL
-
-//        let url: java.net.URL! = java.net.URL(string: x)
-        #else
-
-        #endif
         //assert(contents.contains("Example Domain"))
     }
 }
