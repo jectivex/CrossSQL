@@ -176,6 +176,23 @@ public enum SQLValue {
         }
     }
 
+    func toBindString() -> String? {
+        switch self {
+        case .null:
+            return nil
+        case let .text(string: str):
+            return str
+        case let .integer(int: num):
+            return num.description
+        case let .float(double: dbl):
+            return dbl.description
+        case let .blob(data: bytes):
+            return nil // bytes.description // mis-transpiles
+        default: // needed for Kotlin when mixed associated type w/ empty enum
+            return nil
+        }
+    }
+
     /// If this is a `text` value, then return the underlying string
     var textValue: String? {
         switch self {
@@ -210,18 +227,34 @@ public enum SQLValue {
 
 }
 
-/// The type of a SQLite colums
+/// The type of a SQLite colums.
+///
+/// Every value in SQLite has one of five fundamental datatypes:
+///  - 64-bit signed integer
+///  - 64-bit IEEE floating point number
+///  - string
+///  - BLOB
+///  - NULL
 public enum ColumnType : Int32 {
     /// `SQLITE_NULL`
     case null = 0
-    /// `SQLITE_INTEGER`
+    /// `SQLITE_INTEGER`, a 64-bit signed integer
     case integer = 1
-    /// `SQLITE_FLOAT`
+    /// `SQLITE_FLOAT`, a 64-bit IEEE floating point number
     case float = 2
-    /// `SQLITE_TEXT`
+    /// `SQLITE_TEXT`, a string
     case text = 3
-    /// `SQLITE_BLOB`
+    /// `SQLITE_BLOB`, a byte array
     case blob = 4
+
+    /// Returns true if this column is expected to hold a numeric type.
+    var isNumeric: Bool {
+        switch self {
+        case .integer: return true
+        case .float: return true
+        default: return false
+        }
+    }
 }
 
 /// A cursor to the open result set returned by `Connection.query`.
@@ -241,21 +274,9 @@ public final class Cursor {
     fileprivate init(_ connection: Connection, _ SQL: String, params: [SQLValue]) throws {
         self.connection = connection
 
-//        func bindArgString(param: SQLValue) -> String? {
-//            return param.toBindArg().flatMap {
-//                "\($0)"
-//            }
-//        }
-        
         #if os(Android)
-        let bindArgs = params.map { $0.toBindArg() }
-        var bindArgStrings: [String] = []
-//        bindArgStrings = bindArgs.map { $0?.description as String? }
-//        for arg in bindArgs {
-//            bindArgStrings.append("")
-//        }
-        //bindArgStrings = bindArgs.map { $0!.description } // “error: Unable to get closure type (failed to translate SwiftSyntax node).”
-        self.cursor = connection.db.rawQuery(SQL, bindArgStrings.toTypedArray())
+        let bindArgs: [String?] = params.map { $0.toBindString() }
+        self.cursor = connection.db.rawQuery(SQL, bindArgs.toTypedArray())
         #else
         try connection.check(resultOf: sqlite3_prepare_v2(connection.handle, SQL, -1, &handle, nil))
         for (index, param) in params.enumerated() {
@@ -263,7 +284,6 @@ public final class Cursor {
         }
         #endif
     }
-
 
     var columnCount: Int32 {
         #if os(Android)
@@ -312,40 +332,86 @@ public final class Cursor {
         }
     }
 
-    /// Returns the values of the current row
-    public func getRowValues() -> [SQLValue] {
-        return (0..<columnCount).map { column in
-            switch getColumnType(column: column) {
-            case .null:
-                return .null
-            case .text:
-                return .text(string: getString(column: column))
-            case .integer:
-                return .integer(int: getInt64(column: column))
-            case .float:
-                return .float(double: getDouble(column: column))
-            case .blob:
-                return .null // .blob(data: getBlob(column: column)) // introduces compile error w/ Gryphon: “error: Unable to get closure type (failed to translate SwiftSyntax node).”
-            default:
-                return .null
-            }
+    /// Returns the value contained in the given column, coerced to the expected type based on the column definition.
+    public func getValue(column: Int32) -> SQLValue {
+        switch getColumnType(column: column) {
+        case .null:
+            return .null
+        case .text:
+            return .text(string: getString(column: column))
+        case .integer:
+            return .integer(int: getInt64(column: column))
+        case .float:
+            return .float(double: getDouble(column: column))
+        case .blob:
+            return .null // .blob(data: getBlob(column: column)) // introduces compile error w/ Gryphon: “error: Unable to get closure type (failed to translate SwiftSyntax node).”
+        default:
+            return .null
         }
     }
 
-    /// Steps to the next row and returns all the values in the row.
-    /// - Parameter close: if true, closes the cursor after returning the values; this can be useful for single-shot execution of queries where only a single row is expected.
-    /// - Returns: an array of ``SQLValue`` containing the row contents.
-    public func nextRow(close: Bool = false) throws -> [SQLValue]? {
-        if try next() {
-            let values = getRowValues()
-            if close {
-                try self.close()
-            }
-            return values
-        } else {
-            try self.close()
-            return nil
+    /// Returns the values of the current row as an array
+    public func getRow() -> [SQLValue] {
+        return (0..<columnCount).map { column in
+            getValue(column: column)
         }
+    }
+
+    /// Returns a textual description of the row's values in a format suitable for printing to a console
+    public func rowText(header: Bool = false, values: Bool = false, width: Int = 80) -> String {
+        var str = ""
+        let sep = header == false && values == false ? "+" : "|"
+        str += sep
+        let count = /* gryphon value: columnCount */ Int(columnCount)
+        var cellSpan = (width / count) - 2
+        if cellSpan < 0 {
+            cellSpan = 0
+            cellSpan = 0
+        }
+
+        for col in 0..<count {
+            let i = /* gryphon value: col */ Int32(col)
+            let cell: String
+            if header {
+                cell = getColumnName(column: i)
+            } else if values {
+                cell = getValue(column: i).toBindString() ?? ""
+            } else {
+                cell = ""
+            }
+
+            let numeric = header || values ? getColumnType(column: i).isNumeric : false
+            let padding = header || values ? " " : "-"
+            str += padding
+            str += cell.pad(cell, to: cellSpan - 2, padding: padding, rightAlign: numeric)
+            str += padding
+            if col < count - 1 {
+                str += sep
+            }
+        }
+        str += sep
+        return str
+    }
+
+    /// Steps to the next row and returns all the values in the row.
+    /// - Parameter close: if true, closes the cursor after returning the values; this can be useful for single-shot execution of queries where only one row is expected.
+    /// - Returns: an array of ``SQLValue`` containing the row contents.
+   public func nextRow(close: Bool = false) throws -> [SQLValue]? {
+       do {
+           if try next() == false {
+               try self.close()
+               return nil
+           } else {
+               let values = getRow()
+               if close {
+                   try self.close()
+               }
+               return values
+           }
+       } catch let error {
+           try? self.close()
+           throw error
+       }
     }
 
     public func getDouble(column: Int32) -> Double {
@@ -438,6 +504,31 @@ public class Random {
     }
 }
 
+extension String {
+    /// Sets the cell contents to the given span, either by truncating or padding it out.
+    func pad(_ cell: String, to cellSpan: Int, padding: String = " ", rightAlign: Bool = false) -> String {
+        var cell = cell
+        while cell.count > cellSpan {
+            cell = String(cell.dropLast())
+        }
+        while cell.count < cellSpan {
+            if rightAlign {
+                cell = padding + cell
+            } else {
+                cell = cell + padding
+            }
+        }
+        return cell
+    }
+}
+
+extension Double {
+    // Kotlin:  Unresolved reference: Range
+//    public static func random(in range: Range<Double>) -> Double {
+//        return Random().randomDouble()
+//    }
+}
+
 // MARK: URL
 
 #if os(Android)
@@ -512,18 +603,6 @@ public extension FileManager {
 #endif
 
 
-// Alternate data solution: wrapping it in a custom type
-
-// A Foundation-compatible Data.
-//public class Data : Hashable {
-//    let bytes: ByteArray
-//    public init(bytes: ByteArray) {
-//        self.bytes = bytes
-//    }
-//}
-
-
-
 // MARK: Utilities
 
 func dbg(_ value: String) {
@@ -551,22 +630,30 @@ enum JSON {
 extension Connection {
     static func demoDatabase() throws {
         let rnd = Random().randomDouble()
-        //let rnd = Double.random(in: 0..<1)
 
         let dbname = "/tmp/demosql_\(rnd).db"
 
         dbg("connecting to: " + dbname)
         let conn = try Connection(dbname)
 
-//        assert(try! conn.query(sql: "SELECT 1").nextRow(close: true)?.first?.integerValue == 1)
-//        assert(try! conn.query(sql: "SELECT 1.0").nextRow(close: true)?.first?.floatValue == 1.0)
-//        assert(try! conn.query(sql: "SELECT 'ABC'").nextRow(close: true)?.first?.textValue == "ABC")
+        assert(try! conn.query(sql: "SELECT 1.0").nextRow(close: true)?.first?.floatValue == 1.0)
+        assert(try! conn.query(sql: "SELECT 'ABC'").nextRow(close: true)?.first?.textValue == "ABC")
+        assert(try! conn.query(sql: "SELECT lower('ABC')").nextRow(close: true)?.first?.textValue == "abc")
+        assert(try! conn.query(sql: "SELECT 3.0/2.0, 4.0*2.5").nextRow(close: true)?.last?.floatValue == 10.0)
+
+        assert(try! conn.query(sql: "SELECT ?", params: [.text(string: "ABC")]).nextRow(close: true)?.first?.textValue == "ABC")
+        assert(try! conn.query(sql: "SELECT upper(?), lower(?)", params: [.text(string: "ABC"), .text(string: "XYZ")]).nextRow(close: true)?.last?.textValue == "xyz")
+
+        // gryphon ignore
+        assert(try! conn.query(sql: "SELECT ?", params: [.float(double: 1.1)]).nextRow(close: true)?.last?.floatValue == 1.1) //
+
+        // gryphon ignore
+        assert(try! conn.query(sql: "SELECT 1").nextRow(close: true)?.first?.integerValue == 1) // Kotlin error: “Operator '==' cannot be applied to 'Long?' and 'Int'”
 
         try conn.execute(sql: "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER, DBL FLOAT)")
         for i in 1...10 {
-            try conn.execute(sql: "INSERT INTO FOO VALUES(?, \(i), \(i))", params: [.text(string: i.description)])
+            try conn.execute(sql: "INSERT INTO FOO VALUES(?, ?, ?)", params: [.text(string: i.description), .integer(int: /* gryphon value: i.toLong() */ Int64(i)), .float(double: Double(i))])
         }
-
 
         let cursor = try conn.query(sql: "SELECT * FROM FOO")
         let colcount = cursor.columnCount
@@ -574,8 +661,21 @@ extension Connection {
         assert(colcount == 3)
 
         var row = 0
+        let consoleWidth = 80
+
+
         while try cursor.next() {
+            if row == 0 {
+                // header and border rows
+                dbg(cursor.rowText(width: consoleWidth))
+                dbg(cursor.rowText(header: true, width: consoleWidth))
+                dbg(cursor.rowText(width: consoleWidth))
+            }
+            
+            dbg(cursor.rowText(values: true, width: consoleWidth))
+
             row += 1
+
             assert(cursor.getColumnName(column: 0) == "NAME")
             assert(cursor.getColumnType(column: 0) == .text)
             assert(cursor.getString(column: 0) == "\(row)")
@@ -588,6 +688,7 @@ extension Connection {
             assert(cursor.getColumnType(column: 2) == .float)
             assert(cursor.getDouble(column: 2) == Double(row))
         }
+        dbg(cursor.rowText(width: consoleWidth))
 
         try cursor.close()
         assert(cursor.closed == true)
