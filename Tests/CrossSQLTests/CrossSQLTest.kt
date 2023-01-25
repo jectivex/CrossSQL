@@ -1,7 +1,16 @@
 package CrossSQL
 
-import org.junit.Test
+import org.junit.*
+import org.junit.Assert.*
 import org.junit.runner.RunWith
+
+import kotlinx.coroutines.*
+import kotlinx.coroutines.test.*
+
+import java.io.BufferedReader
+import java.net.HttpURLConnection
+import java.net.URL
+
 
 /** Hand-written test case that simply calls `Connection.demoDatabase()` */
 @RunWith(org.robolectric.RobolectricTestRunner::class)
@@ -12,17 +21,41 @@ class CrossSQLTest {
         Connection.demoDatabase()
     }
 
-    
-    //@Test
-    //fun dataShouldBeHelloWorld() = runTest {
-    //    val data = fetchData()
-    //    assertEquals("Hello world", data)
-    //}
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class) // otherwise warning: “CrossSQLTest.kt: (26, 31): This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'”
+    fun testDatabaseAsync() = runTest {
+        Connection.demoDatabaseAsync()
+    }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun dataFetchShouldWork() = runTest {
+        val data = getWebText(url = URL("https://www.example.org"))
+        //print(data)
+        assertTrue(data.contains("Example Domain"))
+    }
+
+    @Test
+    fun testWeakRef() {
+        demoWeakSelf("ABC")
+    }
 
 }
 
-//suspend fun fetchData(): String {
-//    delay(1000L)
-//    return "Hello world"
-//}
+private suspend fun getWebText(url: URL): String = withContext(Dispatchers.IO) {
+    url.run {
+        val connection = openConnection() // as HttpURLConnection
+        val stream = connection.inputStream
+        val text = stream.bufferedReader().use(BufferedReader::readText)
+        text
+    }
+}
 
+
+fun demoWeakSelf(value: Any): Unit {
+    java.lang.ref.WeakReference(value).run {
+        this.get()?.let { ref ->
+            System.out.println("weak ref contents:" + ref)
+        }
+    }
+}

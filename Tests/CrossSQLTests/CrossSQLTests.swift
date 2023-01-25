@@ -5,6 +5,11 @@ final class CrossFoundationTests: XCTestCase {
     func testSwiftSQLConnection() throws {
         try Connection.demoDatabase()
     }
+
+    func testSwiftSQLConnectionAsync() async throws {
+        try await Connection.demoDatabaseAsync()
+    }
+
 }
 
 #if canImport(Skiff)

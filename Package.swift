@@ -11,11 +11,13 @@ let package = Package(
         .library(name: "CrossSQL", targets: ["CrossSQL"]),
     ],
     dependencies: [
-//        .package(url: "https://github.com/jectivex/CrossFile", branch: "main"),
+        .package(url: "https://github.com/jectivex/CrossFoundation", branch: "main"),
         .package(url: "https://github.com/jectivex/Skiff", branch: "main"),
     ],
     targets: [
-        .target(name: "CrossSQL", dependencies: [], resources: [.process("i18n"), .copy("Resources")]),
+        .target(name: "CrossSQL", dependencies: [
+//            "CrossFoundation",
+        ], resources: [.process("i18n"), .copy("Resources")]),
         .testTarget(name: "CrossSQLTests", dependencies: [
             "CrossSQL",
             .product(name: "Skiff", package: "Skiff", condition: .when(platforms: [.macOS, .linux]))

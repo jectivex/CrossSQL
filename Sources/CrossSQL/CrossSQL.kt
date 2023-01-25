@@ -24,13 +24,114 @@ class Connection {
         }
     }
 
-    open fun execute(sql: String) {
-        db.execSQL(sql)
+    open fun execute(sql: String, params: List<SQLValue> = listOf()) {
+        val bindArgs: List<Any?> = params.map { it.toBindArg() }
+        db.execSQL(sql, bindArgs.toTypedArray())
     }
 
-    open fun query(sql: String, params: List<String> = listOf()): Cursor = Cursor(connection = this, SQL = sql, params = params)
+    open fun query(sql: String, params: List<SQLValue> = listOf()): Cursor = Cursor(connection = this, SQL = sql, params = params)
 
     // some random static function is needed to get Gryphon to generate a Companion object to extend (below)
+}
+
+sealed class SQLValue {
+    class Null: SQLValue()
+    class Text(val string: String): SQLValue()
+    class Integer(val int: Long): SQLValue()
+    class Float(val double: Double): SQLValue()
+    class Blob(val data: Data): SQLValue()
+
+    internal val columnType: ColumnType
+        get() {
+            // warnings about let pattern with no effect and default bot needed works around Grphyon translation mixed associated type w/ empty enum
+            return when (this) {
+                is SQLValue.Null -> ColumnType.NULL
+                is SQLValue.Text -> ColumnType.TEXT
+                is SQLValue.Integer -> ColumnType.INTEGER
+                is SQLValue.Float -> ColumnType.FLOAT
+                is SQLValue.Blob -> ColumnType.BLOB
+                else -> ColumnType.NULL
+            }
+        }
+
+    internal fun toBindArg(): Any? {
+        return when (this) {
+            is SQLValue.Null -> null
+            is SQLValue.Text -> {
+                val str: String = this.string
+                str
+            }
+            is SQLValue.Integer -> {
+                val num: Long = this.int
+                num
+            }
+            is SQLValue.Float -> {
+                val dbl: Double = this.double
+                dbl
+            }
+            is SQLValue.Blob -> {
+                val bytes: Data = this.data
+                bytes
+            }
+            else -> {
+                // needed for Kotlin when mixed associated type w/ empty enum
+                null
+            }
+        }
+    }
+
+    internal val textValue: String?
+        get() {
+            return when (this) {
+                is SQLValue.Text -> {
+                    val str: String = this.string
+                    str
+                }
+                else -> null
+            }
+        }
+    internal val integerValue: Long?
+        get() {
+            return when (this) {
+                is SQLValue.Integer -> {
+                    val num: Long = this.int
+                    num
+                }
+                else -> null
+            }
+        }
+    internal val floatValue: Double?
+        get() {
+            return when (this) {
+                is SQLValue.Float -> {
+                    val dbl: Double = this.double
+                    dbl
+                }
+                else -> null
+            }
+        }
+    internal val blobValue: Data?
+        get() {
+            return when (this) {
+                is SQLValue.Blob -> {
+                    val dat: Data = this.data
+                    dat
+                }
+                else -> null
+            }
+        }
+}
+
+enum class ColumnType(val rawValue: Int) {
+    NULL(rawValue = 0),
+    INTEGER(rawValue = 1),
+    FLOAT(rawValue = 2),
+    TEXT(rawValue = 3),
+    BLOB(rawValue = 4);
+
+    companion object {
+        operator fun invoke(rawValue: Int): ColumnType? = values().firstOrNull { it.rawValue == rawValue }
+    }
 }
 
 class Cursor {
@@ -38,42 +139,23 @@ class Cursor {
     internal open var cursor: android.database.Cursor
     open var closed: Boolean = false
 
-    internal constructor(connection: Connection, SQL: String, params: List<String>) {
+    internal constructor(connection: Connection, SQL: String, params: List<SQLValue>) {
         this.connection = connection
-        //self.statement = connection.db.compileStatement(SQL)
-        this.cursor = connection.db.rawQuery(SQL, params.toTypedArray())
-    }
 
-    sealed class SQLValue {
-        class Null: SQLValue()
-        class Text(val string: String): SQLValue()
+        //        func bindArgString(param: SQLValue) -> String? {
+        //            return param.toBindArg().flatMap {
+        //                "\($0)"
+        //            }
+        //        }
+        val bindArgs: List<Any?> = params.map { it.toBindArg() }
+        var bindArgStrings: List<String> = listOf()
 
-        internal val columnType: ColumnType
-            get() {
-                return when (this) {
-                    SQLValue.Null() -> ColumnType.NULL
-                    is SQLValue.Text -> {
-                        // case label is needed by Gryphon
-                        ColumnType.TEXT
-                    }
-                    else -> {
-                        // needed for Kotlin when mixed associated type w/ empty enum
-                        ColumnType.NULL
-                    }
-                }
-            }
-    }
-
-    enum class ColumnType(val rawValue: Int) {
-        NULL(rawValue = 0),
-        INTEGER(rawValue = 1),
-        FLOAT(rawValue = 2),
-        TEXT(rawValue = 3),
-        BLOB(rawValue = 4);
-
-        companion object {
-            operator fun invoke(rawValue: Int): ColumnType? = values().firstOrNull { it.rawValue == rawValue }
-        }
+        //        bindArgStrings = bindArgs.map { $0?.description as String? }
+        //        for arg in bindArgs {
+        //            bindArgStrings.append("")
+        //        }
+        //bindArgStrings = bindArgs.map { $0!.description } // “error: Unable to get closure type (failed to translate SwiftSyntax node).”
+        this.cursor = connection.db.rawQuery(SQL, bindArgStrings.toTypedArray())
     }
 
     internal open val columnCount: Int
@@ -95,6 +177,34 @@ class Cursor {
         }
     }
 
+    open fun getRowValues(): List<SQLValue> {
+        return (0 until columnCount).map(
+            { column ->
+                        when (getColumnType(column = column)) {
+                            ColumnType.NULL -> SQLValue.Null()
+                            ColumnType.TEXT -> SQLValue.Text(string = getString(column = column))
+                            ColumnType.INTEGER -> SQLValue.Integer(int = getInt64(column = column))
+                            ColumnType.FLOAT -> SQLValue.Float(double = getDouble(column = column))
+                            ColumnType.BLOB -> SQLValue.Null()
+                            else -> SQLValue.Null()
+                        }
+                    })
+    }
+
+    open fun nextRow(close: Boolean = false): List<SQLValue>? {
+        if (next()) {
+            val values: List<SQLValue> = getRowValues()
+            if (close) {
+                this.close()
+            }
+            return values
+        }
+        else {
+            this.close()
+            return null
+        }
+    }
+
     open fun getDouble(column: Int): Double = this.cursor.getDouble(column)
 
     open fun getInt64(column: Int): Long = this.cursor.getLong(column)
@@ -113,6 +223,8 @@ class Cursor {
         }
         closed = true
     }
+
+    // TODO: finalize { close() }
 }
 
 // MARK: Random
@@ -166,6 +278,37 @@ class FileManager {
 //        self.bytes = bytes
 //    }
 //}
+// MARK: Async / Coroutines
+class URLSession {
+    companion object {
+        val shared: URLSession = URLSession()
+    }
+
+    private constructor() {
+    }
+
+    open fun fetch(url: URL): String = ""
+}
+
+//private suspend fun getWebText(url: URL): String = withContext(Dispatchers.IO) {
+//    url.run {
+//        val connection = openConnection() // as HttpURLConnection
+//        val stream = connection.inputStream
+//        val text = stream.bufferedReader().use(BufferedReader::readText)
+//        text
+//    }
+//}
+private fun download(url: URL) {
+    //withContext(Dispatchers.IO) {
+    //url.run {
+    //    let connection = openConnection() // as HttpURLConnection
+    //    let stream = connection.inputStream
+    //    let text = stream.bufferedReader().use(BufferedReader.readText)
+    //    return text
+    //}
+    //}
+}
+
 // MARK: Utilities
 internal fun dbg(value: String) {
     System.out.println("DEBUG Kotlin: " + value)
@@ -192,23 +335,37 @@ internal fun Connection.Companion.demoDatabase() {
 
     val conn: Connection = Connection(filename = dbname)
 
-    conn.execute(sql = "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER)")
+    //        assert(try! conn.query(sql: "SELECT 1").nextRow(close: true)?.first?.integerValue == 1)
+    //        assert(try! conn.query(sql: "SELECT 1.0").nextRow(close: true)?.first?.floatValue == 1.0)
+    //        assert(try! conn.query(sql: "SELECT 'ABC'").nextRow(close: true)?.first?.textValue == "ABC")
+    conn.execute(sql = "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER, DBL FLOAT)")
 
     for (i in 1..10) {
-        conn.execute(sql = "INSERT INTO FOO VALUES('${i}', ${i})")
+        conn.execute(
+            sql = "INSERT INTO FOO VALUES(?, ${i}, ${i})",
+            params = listOf(SQLValue.Text(string = i.toString())))
     }
 
     val cursor: Cursor = conn.query(sql = "SELECT * FROM FOO")
     val colcount: Int = cursor.columnCount
 
     dbg(value = "columns: ${colcount}")
-    assert(colcount == 2)
+    assert(colcount == 3)
+
+    var row: Int = 0
 
     while (cursor.next()) {
+        row += 1
+
         assert(cursor.getColumnName(column = 0) == "NAME")
-        assert(cursor.getColumnType(0) == Cursor.ColumnType.TEXT)
+        assert(cursor.getColumnType(column = 0) == ColumnType.TEXT)
+        assert(cursor.getString(column = 0) == "${row}")
         assert(cursor.getColumnName(column = 1) == "NUM")
-        assert(cursor.getColumnType(1) == Cursor.ColumnType.INTEGER)
+        assert(cursor.getColumnType(column = 1) == ColumnType.INTEGER)
+        assert(cursor.getInt64(column = 1) == row.toLong())
+        assert(cursor.getColumnName(column = 2) == "DBL")
+        assert(cursor.getColumnType(column = 2) == ColumnType.FLOAT)
+        assert(cursor.getDouble(column = 2) == row.toDouble())
     }
 
     cursor.close()
@@ -225,4 +382,18 @@ internal fun Connection.Companion.demoDatabase() {
     // 'removeItem(at:)' is deprecated: URL paths not yet implemented in Kotlin
     //try FileManager.default.removeItem(at: URL(fileURLWithPath: dbname, isDirectory: false))
     FileManager.default.removeItem(path = dbname)
+}
+
+internal fun Connection.Companion.demoDatabaseAsync() {
+    dbg(value = "ASYNC TEST")
+
+    // FIXME: not really async
+    val url: URL = URL("https://www.example.org")
+    val session: URLSession = URLSession.shared
+
+    //        let contents = try await session.fetch(url: url)
+    //let contents: String = try String(from: url)
+    //typealias XXX = java.net.URL
+    //        let url: java.net.URL! = java.net.URL(string: x)
+    //assert(contents.contains("Example Domain"))
 }

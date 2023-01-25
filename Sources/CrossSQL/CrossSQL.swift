@@ -14,8 +14,9 @@ public final class Connection {
     #if KOTLIN
     public let db: android.database.sqlite.SQLiteDatabase
     #else
-    public var handle: OpaquePointer { _handle! }
-    fileprivate var _handle: OpaquePointer?
+    public typealias Handle = OpaquePointer
+    fileprivate var _handle: Handle?
+    public var handle: Handle { _handle! }
     #endif
 
     /// Whether the connection to the database is closed or not
@@ -26,7 +27,7 @@ public final class Connection {
         self.db = SQLiteDatabase.openOrCreateDatabase(filename, null, null)
         #else
         let flags = readonly ? SQLITE_OPEN_READONLY : (SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE)
-        try check(sqlite3_open_v2(filename, &_handle, flags | SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_URI, nil))
+        try check(resultOf: sqlite3_open_v2(filename, &_handle, flags | SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_URI, nil))
         #endif
     }
 
@@ -52,18 +53,24 @@ public final class Connection {
     }
 
     /// Executes a single SQL statement.
-    public func execute(sql: String) throws {
+    public func execute(sql: String, params: [SQLValue] = []) throws {
         #if KOTLIN
-        db.execSQL(sql)
+        let bindArgs = params.map { $0.toBindArg() }
+        db.execSQL(sql, bindArgs.toTypedArray())
         #else
-        try check(sqlite3_exec(handle, sql, nil, nil, nil))
+        if params.isEmpty {
+            // no-param single-shot exec convenience
+            try check(resultOf: sqlite3_exec(handle, sql, nil, nil, nil))
+        } else {
+            _ = try Cursor(self, sql, params: params).nextRow(close: true)
+        }
         #endif
     }
 
     #if KOTLIN
 
     #else
-    @discardableResult fileprivate func check(_ resultCode: Int32) throws -> Int32 {
+    @discardableResult fileprivate func check(resultOf resultCode: Int32) throws -> Int32 {
         let successCodes: Set = [SQLITE_OK, SQLITE_ROW, SQLITE_DONE]
         if !successCodes.contains(resultCode) {
             let message = String(cString: sqlite3_errmsg(self.handle))
@@ -78,13 +85,45 @@ public final class Connection {
     #endif
 
     /// Executes the given query with the specified parameters.
-    public func query(sql: String, params: [String] = []) throws -> Cursor {
+    public func query(sql: String, params: [SQLValue] = []) throws -> Cursor {
         try Cursor(self, sql, params: params)
     }
+
 
     // some random static function is needed to get Gryphon to generate a Companion object to extend (below)
     private static func noop() throws {
     }
+
+    #if KOTLIN
+
+    #else
+    /// Binds the given parameter at the given index.
+    /// - Parameters:
+    ///   - handle: the statement handle to bind to
+    ///   - parameter: the parameter value to bind
+    ///   - index: the index of the matching '?' parameter, which starts at 1
+    fileprivate func bind(handle: Cursor.Handle?, parameter: SQLValue, index: Int32) throws {
+        switch parameter {
+        case .null:
+            try self.check(resultOf: sqlite3_bind_null(handle, index))
+        case let .text(string: string):
+            try self.check(resultOf: sqlite3_bind_text(handle, index, string, -1, SQLITE_TRANSIENT))
+        case let .integer(int: num):
+            try self.check(resultOf: sqlite3_bind_int64(handle, index, num))
+        case let .float(double: dbl):
+            try self.check(resultOf: sqlite3_bind_double(handle, index, dbl))
+        case let .blob(data: bytes) where bytes.isEmpty:
+            try self.check(resultOf: sqlite3_bind_zeroblob(handle, index, 0))
+        case let .blob(data: bytes):
+            try bytes.withUnsafeBytes { ptr in
+                try self.check(resultOf: sqlite3_bind_blob(handle, index, ptr, Int32(bytes.count), SQLITE_TRANSIENT))
+            }
+       }
+    }
+    #endif
+
+
+
 }
 
 
@@ -95,6 +134,96 @@ public final class Connection {
 let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 #endif
 
+public enum SQLValue {
+    case null
+    case text(string: String)
+    case integer(int: Int64)
+    case float(double: Double)
+    case blob(data: Data)
+
+    var columnType: ColumnType {
+        // warnings about let pattern with no effect and default bot needed works around Grphyon translation mixed associated type w/ empty enum
+        switch self {
+        case .null:
+            return ColumnType.null
+        case let .text(string: _):
+            return ColumnType.text
+        case let .integer(int: _):
+            return ColumnType.integer
+        case let .float(double: _):
+            return ColumnType.float
+        case let .blob(data: _):
+            return ColumnType.blob
+        default:
+            return ColumnType.null
+        }
+    }
+
+    func toBindArg() -> Any? {
+        switch self {
+        case .null:
+            return nil
+        case let .text(string: str):
+            return str
+        case let .integer(int: num):
+            return num
+        case let .float(double: dbl):
+            return dbl
+        case let .blob(data: bytes):
+            return bytes
+        default: // needed for Kotlin when mixed associated type w/ empty enum
+            return nil
+        }
+    }
+
+    /// If this is a `text` value, then return the underlying string
+    var textValue: String? {
+        switch self {
+        case let .text(string: str): return str
+        default: return nil
+        }
+    }
+
+    /// If this is a `integer` value, then return the underlying integer
+    var integerValue: Int64? {
+        switch self {
+        case let .integer(int: num): return num
+        default: return nil
+        }
+    }
+
+    /// If this is a `float` value, then return the underlying double
+    var floatValue: Double? {
+        switch self {
+        case let .float(double: dbl): return dbl
+        default: return nil
+        }
+    }
+
+    /// If this is a `blob` value, then return the underlying data
+    var blobValue: Data? {
+        switch self {
+        case let .blob(data: dat): return dat
+        default: return nil
+        }
+    }
+
+}
+
+/// The type of a SQLite colums
+public enum ColumnType : Int32 {
+    /// `SQLITE_NULL`
+    case null = 0
+    /// `SQLITE_INTEGER`
+    case integer = 1
+    /// `SQLITE_FLOAT`
+    case float = 2
+    /// `SQLITE_TEXT`
+    case text = 3
+    /// `SQLITE_BLOB`
+    case blob = 4
+}
+
 /// A cursor to the open result set returned by `Connection.query`.
 public final class Cursor {
     fileprivate let connection: Connection
@@ -102,84 +231,45 @@ public final class Cursor {
     #if KOTLIN
     fileprivate var cursor: android.database.Cursor
     #else
-    fileprivate var handle: OpaquePointer?
+    typealias Handle = OpaquePointer
+    fileprivate var handle: Handle?
     #endif
 
     /// Whether the cursor is closed or not
     public private(set) var closed = false
 
-    fileprivate init(_ connection: Connection, _ SQL: String, params: [String]) throws {
+    fileprivate init(_ connection: Connection, _ SQL: String, params: [SQLValue]) throws {
         self.connection = connection
 
+//        func bindArgString(param: SQLValue) -> String? {
+//            return param.toBindArg().flatMap {
+//                "\($0)"
+//            }
+//        }
+        
         #if KOTLIN
-        //self.statement = connection.db.compileStatement(SQL)
-        self.cursor = connection.db.rawQuery(SQL, params.toTypedArray())
+        let bindArgs = params.map { $0.toBindArg() }
+        var bindArgStrings: [String] = []
+//        bindArgStrings = bindArgs.map { $0?.description as String? }
+//        for arg in bindArgs {
+//            bindArgStrings.append("")
+//        }
+        //bindArgStrings = bindArgs.map { $0!.description } // “error: Unable to get closure type (failed to translate SwiftSyntax node).”
+        self.cursor = connection.db.rawQuery(SQL, bindArgStrings.toTypedArray())
         #else
-        try connection.check(sqlite3_prepare_v2(connection.handle, SQL, -1, &handle, nil))
+        try connection.check(resultOf: sqlite3_prepare_v2(connection.handle, SQL, -1, &handle, nil))
         for (index, param) in params.enumerated() {
-            try bind(parameter: .text(string: param), index: .init(index))
+            try connection.bind(handle: self.handle, parameter: param, index: .init(index + 1))
         }
         #endif
     }
 
 
-    #if KOTLIN
-
-    #else
-    /// Binds the given parameter at the given index.
-    private func bind(parameter: SQLValue, index: Int32) throws {
-        switch parameter {
-        case .null:
-            try connection.check(sqlite3_bind_null(handle, Int32(index)))
-        case let .text(string: string):
-            try connection.check(sqlite3_bind_text(handle, Int32(index), string, -1, SQLITE_TRANSIENT))
-//        case let value as Blob where value.bytes.count == 0:
-//            try connection.check(sqlite3_bind_zeroblob(handle, Int32(idx), 0))
-//        case let value as Blob:
-//            try connection.check(sqlite3_bind_blob(handle, Int32(idx), value.bytes, Int32(value.bytes.count), SQLITE_TRANSIENT))
-//        case let value as Double:
-//            try connection.check(sqlite3_bind_double(handle, Int32(idx), value))
-//        case let value as Int64:
-//            try connection.check(sqlite3_bind_int64(handle, Int32(idx), value))
-        }
-    }
-    #endif
-
-    public enum SQLValue {
-        case null
-        case text(string: String)
-
-        var columnType: ColumnType {
-            switch self {
-            case .null:
-                return ColumnType.null
-            case let .text(string: _): // case label is needed by Gryphon
-                return ColumnType.text
-            default: // needed for Kotlin when mixed associated type w/ empty enum
-                return ColumnType.null
-            }
-        }
-    }
-
-    /// The type of a SQLite colums
-    public enum ColumnType : Int32 {
-        /// `SQLITE_NULL`
-        case null = 0
-        /// `SQLITE_INTEGER`
-        case integer = 1
-        /// `SQLITE_FLOAT`
-        case float = 2
-        /// `SQLITE_TEXT`
-        case text = 3
-        /// `SQLITE_BLOB`
-        case blob = 4
-    }
-
-    var columnCount: Int {
+    var columnCount: Int32 {
         #if KOTLIN
         self.cursor.getColumnCount()
         #else
-        Int(sqlite3_column_count(handle))
+        sqlite3_column_count(handle)
         #endif
     }
 
@@ -188,7 +278,7 @@ public final class Cursor {
         #if KOTLIN
         self.cursor.moveToNext()
         #else
-        try connection.check(sqlite3_step(handle)) == SQLITE_ROW
+        try connection.check(resultOf: sqlite3_step(handle)) == SQLITE_ROW
         #endif
     }
 
@@ -219,6 +309,42 @@ public final class Cursor {
         default:
             return .null
             //fatalError("unsupported column type")
+        }
+    }
+
+    /// Returns the values of the current row
+    public func getRowValues() -> [SQLValue] {
+        return (0..<columnCount).map { column in
+            switch getColumnType(column: column) {
+            case .null:
+                return .null
+            case .text:
+                return .text(string: getString(column: column))
+            case .integer:
+                return .integer(int: getInt64(column: column))
+            case .float:
+                return .float(double: getDouble(column: column))
+            case .blob:
+                return .null // .blob(data: getBlob(column: column)) // introduces compile error w/ Gryphon: “error: Unable to get closure type (failed to translate SwiftSyntax node).”
+            default:
+                return .null
+            }
+        }
+    }
+
+    /// Steps to the next row and returns all the values in the row.
+    /// - Parameter close: if true, closes the cursor after returning the values; this can be useful for single-shot execution of queries where only a single row is expected.
+    /// - Returns: an array of ``SQLValue`` containing the row contents.
+    public func nextRow(close: Bool = false) throws -> [SQLValue]? {
+        if try next() {
+            let values = getRowValues()
+            if close {
+                try self.close()
+            }
+            return values
+        } else {
+            try self.close()
+            return nil
         }
     }
 
@@ -269,22 +395,22 @@ public final class Cursor {
         #endif
     }
 
-    func close() {
+    func close() throws {
         if !closed {
             #if KOTLIN
             self.cursor.close()
             #else
-            sqlite3_finalize(handle)
+            try connection.check(resultOf: sqlite3_finalize(handle))
             #endif
         }
         closed = true
     }
 
     #if KOTLIN
-
+    // TODO: finalize { close() }
     #else
     deinit {
-        close()
+        try? close()
     }
     #endif
 }
@@ -318,6 +444,13 @@ public class Random {
 public typealias URL = java.net.URL
 #else
 import struct Foundation.URL
+
+extension URL {
+    /// Convenience init to match java.net.URL string constructor.
+    public init!(_ stringURL: String) {
+        self.init(string: stringURL)
+    }
+}
 #endif
 
 // MARK: Data
@@ -390,6 +523,59 @@ public extension FileManager {
 //}
 
 
+// MARK: Async / Coroutines
+
+#if KOTLIN
+/// An interface to the file system compatible with ``Foundation.FileManager``
+public final class URLSession {
+    public static let shared = URLSession()
+
+    private init() {
+    }
+
+    public func fetch(url: URL) async throws -> String {
+        ""
+    }
+}
+
+//private suspend fun getWebText(url: URL): String = withContext(Dispatchers.IO) {
+//    url.run {
+//        val connection = openConnection() // as HttpURLConnection
+//        val stream = connection.inputStream
+//        val text = stream.bufferedReader().use(BufferedReader::readText)
+//        text
+//    }
+//}
+
+private func download(url: URL) {
+    //withContext(Dispatchers.IO) {
+        //url.run {
+        //    let connection = openConnection() // as HttpURLConnection
+        //    let stream = connection.inputStream
+        //    let text = stream.bufferedReader().use(BufferedReader.readText)
+        //    return text
+        //}
+    //}
+}
+
+
+
+#else
+import class Foundation.URLSession
+
+public extension URLSession {
+    func fetch(url: URL) async throws -> String {
+        ""
+    }
+}
+
+//public extension String {
+//    init(from url: URL) {
+//        self = url.absoluteString
+//    }
+//}
+#endif
+
 
 
 // MARK: Utilities
@@ -426,24 +612,38 @@ extension Connection {
         dbg("connecting to: " + dbname)
         let conn = try Connection(dbname)
 
-        try conn.execute(sql: "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER)")
+//        assert(try! conn.query(sql: "SELECT 1").nextRow(close: true)?.first?.integerValue == 1)
+//        assert(try! conn.query(sql: "SELECT 1.0").nextRow(close: true)?.first?.floatValue == 1.0)
+//        assert(try! conn.query(sql: "SELECT 'ABC'").nextRow(close: true)?.first?.textValue == "ABC")
+
+        try conn.execute(sql: "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER, DBL FLOAT)")
         for i in 1...10 {
-            try conn.execute(sql: "INSERT INTO FOO VALUES('\(i)', \(i))")
+            try conn.execute(sql: "INSERT INTO FOO VALUES(?, \(i), \(i))", params: [.text(string: i.description)])
         }
+
 
         let cursor = try conn.query(sql: "SELECT * FROM FOO")
         let colcount = cursor.columnCount
         dbg("columns: \(colcount)")
-        assert(colcount == 2)
+        assert(colcount == 3)
 
+        var row = 0
         while try cursor.next() {
+            row += 1
             assert(cursor.getColumnName(column: 0) == "NAME")
             assert(cursor.getColumnType(column: 0) == .text)
+            assert(cursor.getString(column: 0) == "\(row)")
+
             assert(cursor.getColumnName(column: 1) == "NUM")
             assert(cursor.getColumnType(column: 1) == .integer)
+            assert(cursor.getInt64(column: 1) == /* gryphon value: row.toLong() */ Int64(row))
+
+            assert(cursor.getColumnName(column: 2) == "DBL")
+            assert(cursor.getColumnType(column: 2) == .float)
+            assert(cursor.getDouble(column: 2) == Double(row))
         }
 
-        cursor.close()
+        try cursor.close()
         assert(cursor.closed == true)
 
         try conn.execute(sql: "DROP TABLE FOO")
@@ -460,3 +660,26 @@ extension Connection {
         try FileManager.default.removeItem(atPath: dbname)
     }
 }
+
+extension Connection {
+    static func demoDatabaseAsync() async throws {
+        dbg("ASYNC TEST")
+        // FIXME: not really async
+        let url: URL = URL("https://www.example.org")
+
+        let session = URLSession.shared
+//        let contents = try await session.fetch(url: url)
+
+        //let contents: String = try String(from: url)
+
+        #if KOTLIN
+            //typealias XXX = java.net.URL
+
+//        let url: java.net.URL! = java.net.URL(string: x)
+        #else
+
+        #endif
+        //assert(contents.contains("Example Domain"))
+    }
+}
+
