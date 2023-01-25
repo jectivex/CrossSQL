@@ -5,6 +5,10 @@
 ## User settings
 xcuserdata/
 
+gradle/
+gradlew
+gradlew.bat
+
 .idea
 .*.swp
 .DS_Store
