@@ -27,6 +27,9 @@ android {
     sourceSets.getByName("test") {
         kotlin.setSrcDirs(listOf("Tests/${group}Tests"))
     }
+    sourceSets.getByName("androidTest") {
+        kotlin.setSrcDirs(listOf("Tests/${group}Tests"))
+    }
     compileSdkVersion(33)
     defaultConfig {
         minSdk = 24
