@@ -25,7 +25,7 @@ let package = Package(
     ]
 )
 
-#if os(Linux)
+#if os(Linux) // on Linux we need a shim module to export sqlite symbols
 package.dependencies += [
     .package(url: "https://github.com/stephencelis/CSQLite.git", from: "0.0.3")
 ]
