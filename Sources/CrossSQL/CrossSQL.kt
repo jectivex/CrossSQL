@@ -2,6 +2,7 @@ package CrossSQL
 
 import android.database.*
 import android.database.sqlite.*
+import CrossFoundation.*
 
 class Connection {
     companion object {
@@ -247,7 +248,7 @@ class Cursor {
 
             str += padding
 
-            str += cell.pad(cell = cell, cellSpan = cellSpan - 2, padding = padding, rightAlign = numeric)
+            str += cell.pad(cellSpan - 2, padding, numeric)
 
             str += padding
 
@@ -303,99 +304,15 @@ class Cursor {
     // TODO: finalize { close() }
 }
 
-// MARK: Random
-open class Random {
-    //let random: java.util.Random = java.util.Random()
-    internal val random: java.util.Random = java.security.SecureRandom()
-
-    open fun randomDouble(): Double {
-        // Returns the next pseudorandom, uniformly distributed double value between 0.0 and 1.0 from this random number generator's sequence.
-        // The general contract of nextDouble is that one double value, chosen (approximately) uniformly from the range 0.0d (inclusive) to 1.0d (exclusive), is pseudorandomly generated and returned.
-        return random.nextDouble()
-    }
-}
-
-internal fun String.pad(
-    cell: String,
-    cellSpan: Int,
-    padding: String = " ",
-    rightAlign: Boolean = false)
-    : String
-{
-    var cell: String = cell
-
-    while (cell.length > cellSpan) {
-        cell = cell.dropLast(1)
-    }
-
-    while (cell.length < cellSpan) {
-        if (rightAlign) {
-            cell = padding + cell
-        }
-        else {
-            cell = cell + padding
-        }
-    }
-
-    return cell
-}
-
-// Kotlin:  Unresolved reference: Range
-//    public static func random(in range: Range<Double>) -> Double {
-//        return Random().randomDouble()
-//    }
-// MARK: URL
-typealias URL = java.net.URL
-
-// MARK: Data
-typealias Data = kotlin.ByteArray
-
-val Data.count: Int
-    get() = size
-
-fun readData(filePath: String): Data = java.io.File(filePath).readBytes()
-
-// MARK: FileManager
-class FileManager {
-    companion object {
-        val `default`: FileManager = FileManager()
-    }
-
-    private constructor() {
-    }
-
-    open fun removeItem(path: String) {
-        if (java.io.File(path).delete() != true) {
-            throw UnableToDeleteFileError(path)
-        }
-    }
-
-    internal data class UnableToDeleteFileError(
-        val path: String
-    ): java.io.IOException()
-}
-
-// MARK: Utilities
-internal fun dbg(value: String) {
-    System.out.println("DEBUG Kotlin: " + value)
-}
-
-// MARK: JSON
-internal sealed class JSON {
-    class Nul: JSON()
-    class Bol(val boolean: Boolean): JSON()
-    class Num(val number: Double): JSON()
-    class Str(val string: String): JSON()
-    class Arr(val array: List<JSON>): JSON()
-    class Obj(val dictionary: Map<String, JSON>): JSON()
-}
-
-// MARK: Unconditional Swift/Kotlin
-internal fun Connection.Companion.demoDatabase() {
-    val rnd: Double = Random().randomDouble()
+// MARK: Test cases
+internal fun Connection.Companion.testDatabase() {
+    // FIXME: cannot determine type
+    //let random: Random = Random.shared
+    //let rnd: Double = (random as Random).randomDouble()
+    val rnd: Int = 1
     val dbname: String = "/tmp/demosql_${rnd}.db"
 
-    dbg(value = "connecting to: " + dbname)
+    dbg("connecting to: " + dbname)
 
     val conn: Connection = Connection(filename = dbname)
 
@@ -413,40 +330,40 @@ internal fun Connection.Companion.demoDatabase() {
                 params = listOf(SQLValue.Text(string = "ABC"), SQLValue.Text(string = "XYZ"))).nextRow(
                 close = true)?.lastOrNull()?.textValue == "xyz")
 
-    //
+    // compiles but AssertionError in Kotlin
     // Kotlin error: “Operator '==' cannot be applied to 'Long?' and 'Int'”
     conn.execute(sql = "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER, DBL FLOAT)")
 
     for (i in 1..10) {
         conn.execute(
             sql = "INSERT INTO FOO VALUES(?, ?, ?)",
-            params = listOf(SQLValue.Text(string = i.toString()), SQLValue.Integer(int = i.toLong()), SQLValue.Float(double = i.toDouble())))
+            params = listOf(SQLValue.Text(string = "NAME_" + i.toString()), SQLValue.Integer(int = i.toLong()), SQLValue.Float(double = i.toDouble())))
     }
 
     val cursor: Cursor = conn.query(sql = "SELECT * FROM FOO")
     val colcount: Int = cursor.columnCount
 
-    dbg(value = "columns: ${colcount}")
+    dbg("columns: ${colcount}")
     assert(colcount == 3)
 
     var row: Int = 0
-    val consoleWidth: Int = 80
+    val consoleWidth: Int = 45
 
     while (cursor.next()) {
         if (row == 0) {
             // header and border rows
-            dbg(value = cursor.rowText(width = consoleWidth))
-            dbg(value = cursor.rowText(header = true, width = consoleWidth))
-            dbg(value = cursor.rowText(width = consoleWidth))
+            dbg(cursor.rowText(false, false, consoleWidth))
+            dbg(cursor.rowText(true, false, consoleWidth))
+            dbg(cursor.rowText(false, false, consoleWidth))
         }
 
-        dbg(value = cursor.rowText(values = true, width = consoleWidth))
+        dbg(cursor.rowText(false, true, consoleWidth))
 
         row += 1
 
         assert(cursor.getColumnName(column = 0) == "NAME")
         assert(cursor.getColumnType(column = 0) == ColumnType.TEXT)
-        assert(cursor.getString(column = 0) == "${row}")
+        assert(cursor.getString(column = 0) == "NAME_${row}")
         assert(cursor.getColumnName(column = 1) == "NUM")
         assert(cursor.getColumnType(column = 1) == ColumnType.INTEGER)
         assert(cursor.getInt64(column = 1) == row.toLong())
@@ -455,7 +372,7 @@ internal fun Connection.Companion.demoDatabase() {
         assert(cursor.getDouble(column = 2) == row.toDouble())
     }
 
-    dbg(value = cursor.rowText(width = consoleWidth))
+    dbg(cursor.rowText(false, false, consoleWidth))
     cursor.close()
     assert(cursor.closed == true)
     conn.execute(sql = "DROP TABLE FOO")
@@ -469,11 +386,11 @@ internal fun Connection.Companion.demoDatabase() {
     // 8192 on Darwin, 12288 for Android
     // 'removeItem(at:)' is deprecated: URL paths not yet implemented in Kotlin
     //try FileManager.default.removeItem(at: URL(fileURLWithPath: dbname, isDirectory: false))
-    FileManager.default.removeItem(path = dbname)
+    FileManager.default.removeItem(dbname)
 }
 
-internal fun Connection.Companion.demoDatabaseAsync() {
-    dbg(value = "ASYNC TEST")
+internal fun Connection.Companion.testDatabaseAsync() {
+    dbg("ASYNC TEST")
 
     // FIXME: not really async
     // let url: URL = URL("https://www.example.org")

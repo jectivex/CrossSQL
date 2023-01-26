@@ -16,7 +16,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "CrossSQL", dependencies: [
-//            "CrossFoundation",
+            "CrossFoundation",
         ], resources: [.process("i18n"), .copy("Resources")]),
         .testTarget(name: "CrossSQLTests", dependencies: [
             "CrossSQL",

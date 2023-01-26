@@ -1,6 +1,9 @@
+import CrossFoundation
+
 #if GRYPHON
 // gryphon insert: import android.database.*
 // gryphon insert: import android.database.sqlite.*
+// gryphon insert: import CrossFoundation.*
 #else
 #if os(Linux)
 import CSQLite
@@ -383,7 +386,7 @@ public final class Cursor {
             let numeric = header || values ? getColumnType(column: i).isNumeric : false
             let padding = header || values ? " " : "-"
             str += padding
-            str += cell.pad(cell, to: cellSpan - 2, padding: padding, rightAlign: numeric)
+            str += cell.pad(to: cellSpan - 2, with: padding, rightAlign: numeric)
             str += padding
             if col < count - 1 {
                 str += sep
@@ -482,154 +485,14 @@ public final class Cursor {
 }
 
 
-// MARK: Random
-
-/// A cross-platform random number generator
-public class Random {
-    #if os(Android)
-    //let random: java.util.Random = java.util.Random()
-    let random: java.util.Random = java.security.SecureRandom()
-    #else
-    var rng: RandomNumberGenerator = SystemRandomNumberGenerator()
-    #endif
-
-    public func randomDouble() -> Double {
-        #if os(Android)
-        // Returns the next pseudorandom, uniformly distributed double value between 0.0 and 1.0 from this random number generator's sequence.
-        // The general contract of nextDouble is that one double value, chosen (approximately) uniformly from the range 0.0d (inclusive) to 1.0d (exclusive), is pseudorandomly generated and returned.
-        return random.nextDouble()
-        #else
-        return Double.random(in: 0..<1, using: &rng)
-        #endif
-    }
-}
-
-extension String {
-    /// Sets the cell contents to the given span, either by truncating or padding it out.
-    func pad(_ cell: String, to cellSpan: Int, padding: String = " ", rightAlign: Bool = false) -> String {
-        var cell = cell
-        while cell.count > cellSpan {
-            cell = String(cell.dropLast())
-        }
-        while cell.count < cellSpan {
-            if rightAlign {
-                cell = padding + cell
-            } else {
-                cell = cell + padding
-            }
-        }
-        return cell
-    }
-}
-
-extension Double {
-    // Kotlin:  Unresolved reference: Range
-//    public static func random(in range: Range<Double>) -> Double {
-//        return Random().randomDouble()
-//    }
-}
-
-// MARK: URL
-
-#if os(Android)
-public typealias URL = java.net.URL
-#else
-import struct Foundation.URL
-
-extension URL {
-    /// Convenience init to match java.net.URL string constructor.
-    public init!(_ stringURL: String) {
-        self.init(string: stringURL)
-    }
-}
-#endif
-
-// MARK: Data
-
-#if os(Android)
-public typealias Data = kotlin.ByteArray
-
-extension Data {
-    /// Foundation uses `count`, Java uses `size`.
-    public var count: Int { size }
-}
-
-/// Reads the data from the given file
-public func readData(fromPath filePath: String) throws -> Data {
-    java.io.File(filePath).readBytes()
-}
-
-#else
-import struct Foundation.Data
-
-/// Reads the data from the given file
-public func readData(fromPath filePath: String) throws -> Data {
-    try Data(contentsOf: URL(fileURLWithPath: filePath, isDirectory: false))
-}
-
-#endif
-
-// MARK: FileManager
-
-#if os(Android)
-/// An interface to the file system compatible with ``Foundation.FileManager``
-public final class FileManager {
-    public static let `default` = FileManager()
-
-    private init() {
-    }
-
-    public func removeItem(atPath path: String) throws {
-        if java.io.File(path).delete() != true {
-            throw UnableToDeleteFileError(path: path)
-        }
-    }
-
-    struct UnableToDeleteFileError : java.io.IOException {
-        let path: String
-    }
-}
-#else
-import class Foundation.FileManager
-
-public extension FileManager {
-    @available(*, deprecated, message: "file URLs not yet implemented on Kotlin side")
-    func removeItem(at url: URL) throws {
-        fatalError("unavailable in Kotlin")
-        //try self.removeItem(at: url)
-    }
-
-}
-#endif
-
-
-// MARK: Utilities
-
-func dbg(_ value: String) {
-    #if os(Android)
-    System.out.println("DEBUG Kotlin: " + value)
-    #else
-    print("DEBUG Swift:", value)
-    #endif
-}
-
-// MARK: JSON
-
-/// A JSON type, which can be null, boolean, number, string, array, or object.
-enum JSON {
-    case nul
-    case bol(boolean: Bool)
-    case num(number: Double)
-    case str(string: String)
-    case arr(array: [JSON])
-    case obj(dictionary: [String: JSON])
-}
-
-// MARK: Unconditional Swift/Kotlin
+// MARK: Test cases
 
 extension Connection {
-    static func demoDatabase() throws {
-        let rnd = Random().randomDouble()
+    static func testDatabase() throws {
+        // FIXME: cannot determine type
+        //let random: Random = Random.shared
+        //let rnd: Double = (random as Random).randomDouble()
+        let rnd = 1
 
         let dbname = "/tmp/demosql_\(rnd).db"
 
@@ -645,14 +508,14 @@ extension Connection {
         assert(try! conn.query(sql: "SELECT upper(?), lower(?)", params: [.text(string: "ABC"), .text(string: "XYZ")]).nextRow(close: true)?.last?.textValue == "xyz")
 
         // gryphon ignore
-        assert(try! conn.query(sql: "SELECT ?", params: [.float(double: 1.1)]).nextRow(close: true)?.last?.floatValue == 1.1) //
+        assert(try! conn.query(sql: "SELECT ?", params: [.float(double: 1.5)]).nextRow(close: true)?.last?.floatValue == 1.5) // compiles but AssertionError in Kotlin
 
         // gryphon ignore
         assert(try! conn.query(sql: "SELECT 1").nextRow(close: true)?.first?.integerValue == 1) // Kotlin error: “Operator '==' cannot be applied to 'Long?' and 'Int'”
 
         try conn.execute(sql: "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER, DBL FLOAT)")
         for i in 1...10 {
-            try conn.execute(sql: "INSERT INTO FOO VALUES(?, ?, ?)", params: [.text(string: i.description), .integer(int: /* gryphon value: i.toLong() */ Int64(i)), .float(double: Double(i))])
+            try conn.execute(sql: "INSERT INTO FOO VALUES(?, ?, ?)", params: [.text(string: "NAME_" + i.description), .integer(int: /* gryphon value: i.toLong() */ Int64(i)), .float(double: Double(i))])
         }
 
         let cursor = try conn.query(sql: "SELECT * FROM FOO")
@@ -661,24 +524,23 @@ extension Connection {
         assert(colcount == 3)
 
         var row = 0
-        let consoleWidth = 80
-
+        let consoleWidth = 45
 
         while try cursor.next() {
             if row == 0 {
                 // header and border rows
-                dbg(cursor.rowText(width: consoleWidth))
-                dbg(cursor.rowText(header: true, width: consoleWidth))
-                dbg(cursor.rowText(width: consoleWidth))
+                dbg(cursor.rowText(header: false, values: false, width: consoleWidth))
+                dbg(cursor.rowText(header: true, values: false, width: consoleWidth))
+                dbg(cursor.rowText(header: false, values: false, width: consoleWidth))
             }
-            
-            dbg(cursor.rowText(values: true, width: consoleWidth))
+
+            dbg(cursor.rowText(header: false, values: true, width: consoleWidth))
 
             row += 1
 
             assert(cursor.getColumnName(column: 0) == "NAME")
             assert(cursor.getColumnType(column: 0) == .text)
-            assert(cursor.getString(column: 0) == "\(row)")
+            assert(cursor.getString(column: 0) == "NAME_\(row)")
 
             assert(cursor.getColumnName(column: 1) == "NUM")
             assert(cursor.getColumnType(column: 1) == .integer)
@@ -688,7 +550,7 @@ extension Connection {
             assert(cursor.getColumnType(column: 2) == .float)
             assert(cursor.getDouble(column: 2) == Double(row))
         }
-        dbg(cursor.rowText(width: consoleWidth))
+        dbg(cursor.rowText(header: false, values: false, width: consoleWidth))
 
         try cursor.close()
         assert(cursor.closed == true)
@@ -709,7 +571,7 @@ extension Connection {
 }
 
 extension Connection {
-    static func demoDatabaseAsync() async throws {
+    static func testDatabaseAsync() async throws {
         dbg("ASYNC TEST")
         // FIXME: not really async
         // let url: URL = URL("https://www.example.org")

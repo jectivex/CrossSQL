@@ -1,13 +1,13 @@
 import XCTest
 @testable import CrossSQL
 
-final class CrossFoundationTests: XCTestCase {
+final class CrossSQLTests: XCTestCase {
     func testSwiftSQLConnection() throws {
-        try Connection.demoDatabase()
+        try Connection.testDatabase()
     }
 
     func testSwiftSQLConnectionAsync() async throws {
-        try await Connection.demoDatabaseAsync()
+        try await Connection.testDatabaseAsync()
     }
 
 }
@@ -15,7 +15,7 @@ final class CrossFoundationTests: XCTestCase {
 #if canImport(Skiff)
 import Skiff
 
-extension CrossFoundationTests {
+extension CrossSQLTests {
     func testKotlinSQLConnection() throws {
         try Skiff().transpileAndTest()
     }
