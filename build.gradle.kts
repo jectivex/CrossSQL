@@ -1,5 +1,4 @@
 group = "CrossSQL"
-buildDir = file(".build")
 
 plugins {
     id("org.jetbrains.kotlin.android") version "1.7.+"
@@ -17,6 +16,7 @@ dependencies {
     testImplementation("junit:junit:4.+")
     testImplementation("org.robolectric:robolectric:4.+")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:+")
+    androidTestImplementation("com.android.support.test:runner:+")
 }
 
 android {
@@ -45,3 +45,5 @@ tasks.withType<Test> {
         this.showStandardStreams = true
     }
 }
+
+buildDir = file(".build") // same as Swift Package Manager
