@@ -1,99 +1,16 @@
-name: CrossSQL CI
+name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - '*'
   pull_request:
     branches:
       - '*'
   schedule:
-    - cron:  '0 2,14 * * *'
+    - cron:  '0 0,12 * * *'
 
-env:
-  DEVELOPER_DIR: /Applications/Xcode_14.1.app/Contents/Developer
-  LINUX_SOURCEKIT_LIB_PATH: /usr/share/swift/usr/lib
-
-jobs:
-  linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Test (Debug)
-        run: swift test --configuration debug
-      - name: Test (Release)
-        run: swift test --configuration release -Xswiftc -enable-testing
-      - name: Test (Gradle)
-        run: GRADLE_OPTS="-Xmx512m" gradle test --console plain --rerun-tasks --no-daemon
-      - name: Verify Pristine
-        run: git diff --exit-code
-
-  macos:
-    runs-on: macos-12
-    steps:
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '11'
-      - uses: actions/checkout@v2
-      - name: Test (Debug)
-        run: swift test --configuration debug
-      - name: Test (Release)
-        run: swift test --configuration release -Xswiftc -enable-testing
-      - name: Test (Gradle)
-        run: GRADLE_OPTS="-Xmx512m" gradle test --console plain --rerun-tasks --no-daemon
-      - name: Verify Pristine
-        run: git diff --exit-code
-
-  ios:
-    if: false # not yet working
-    runs-on: macos-12
-    steps:
-      - uses: actions/checkout@v2
-      - name: Test (Debug)
-        run: xcodebuild clean test -configuration Debug -scheme "CrossSQL" -sdk "iphonesimulator" -destination "platform=iOS Simulator,name=iPhone 14 Pro"
-      - name: Test (Release)
-        run: xcodebuild clean test -configuration Release -scheme "CrossSQL" -sdk "iphonesimulator" -destination "platform=iOS Simulator,name=iPhone 14 Pro"
-
-  tvos:
-    if: false # not yet working
-    runs-on: macos-12
-    steps:
-      - uses: actions/checkout@v2
-      - name: Test (Debug)
-        run: xcodebuild clean test -configuration Debug -scheme "CrossSQL" -sdk "appletvsimulator" -destination "platform=tvOS Simulator,name=Apple TV" 
-      - name: Test (Release)
-        run: xcodebuild clean test -configuration Release -scheme "CrossSQL" -sdk "appletvsimulator" -destination "platform=tvOS Simulator,name=Apple TV" 
-
-
-  api-doc:
-    if: false # not yet working
-    runs-on: macos-12 # needed to be able to document SwiftUI
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v2
-      - name: Build documentation
-        run: |
-          swift -version
-          export SWIFTPM_ENABLE_COMMAND_PLUGINS=1
-          export DOCC_JSON_PRETTYPRINT="YES"
-
-          # insert the docc dependency manually using sed to avoid
-          # polluting Package.swift with unnecessary dependencies
-          sed -I "" 's;^ *var dependencies: \[Package.Dependency] = \[$;    var dependencies: [Package.Dependency] = [ .package(name: "swift-docc-plugin", url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"), ;1' Package.swift
-
-          cat Package.swift
-
-          swift package --allow-writing-to-directory docs \
-            generate-documentation --target CrossSQL \
-            --disable-indexing \
-            --transform-for-static-hosting \
-            --hosting-base-path CrossSQL \
-            --output-path docs
-
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: '.'
-
+jobs:   
+  call-workflow:
+    uses: jectivex/Skiff/.github/workflows/package-ci.yml@main
 

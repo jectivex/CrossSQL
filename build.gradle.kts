@@ -3,7 +3,7 @@ buildDir = file(".build")
 
 plugins {
     id("org.jetbrains.kotlin.android") version "1.7.+"
-    id("com.android.library") version "7.+"
+    id("com.android.library") version "7.5+"
 }
 
 repositories {
