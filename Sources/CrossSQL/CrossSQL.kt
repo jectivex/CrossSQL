@@ -304,7 +304,6 @@ class Cursor {
     // TODO: finalize { close() }
 }
 
-// MARK: Test cases
 internal fun Connection.Companion.testDatabase() {
     // FIXME: cannot determine type
     //let random: Random = Random.shared
@@ -332,6 +331,13 @@ internal fun Connection.Companion.testDatabase() {
 
     // compiles but AssertionError in Kotlin
     // Kotlin error: “Operator '==' cannot be applied to 'Long?' and 'Int'”
+    try {
+        conn.execute(sql = "DROP TABLE FOO")
+    }
+    catch (_error: Exception) {
+        // exception expected when re-running on existing database
+    }
+
     conn.execute(sql = "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER, DBL FLOAT)")
 
     for (i in 1..10) {
@@ -387,15 +393,4 @@ internal fun Connection.Companion.testDatabase() {
     // 'removeItem(at:)' is deprecated: URL paths not yet implemented in Kotlin
     //try FileManager.default.removeItem(at: URL(fileURLWithPath: dbname, isDirectory: false))
     FileManager.default.removeItem(dbname)
-}
-
-internal fun Connection.Companion.testDatabaseAsync() {
-    dbg("ASYNC TEST")
-
-    // FIXME: not really async
-    // let url: URL = URL("https://www.example.org")
-    // let session = URLSession.shared
-    // let contents = try await session.fetch(url: url)
-    //let contents: String = try String(from: url)
-    //assert(contents.contains("Example Domain"))
 }

@@ -485,9 +485,8 @@ public final class Cursor {
 }
 
 
-// MARK: Test cases
-
 extension Connection {
+    /// Test case lives here until we can get module symbols linking from `CrossSQLTests.swift`
     static func testDatabase() throws {
         // FIXME: cannot determine type
         //let random: Random = Random.shared
@@ -512,6 +511,12 @@ extension Connection {
 
         // gryphon ignore
         assert(try! conn.query(sql: "SELECT 1").nextRow(close: true)?.first?.integerValue == 1) // Kotlin error: “Operator '==' cannot be applied to 'Long?' and 'Int'”
+
+        do {
+            try conn.execute(sql: "DROP TABLE FOO")
+        } catch {
+            // exception expected when re-running on existing database
+        }
 
         try conn.execute(sql: "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER, DBL FLOAT)")
         for i in 1...10 {
@@ -569,19 +574,3 @@ extension Connection {
         try FileManager.default.removeItem(atPath: dbname)
     }
 }
-
-extension Connection {
-    static func testDatabaseAsync() async throws {
-        dbg("ASYNC TEST")
-        // FIXME: not really async
-        // let url: URL = URL("https://www.example.org")
-
-        // let session = URLSession.shared
-        // let contents = try await session.fetch(url: url)
-
-        //let contents: String = try String(from: url)
-
-        //assert(contents.contains("Example Domain"))
-    }
-}
-
