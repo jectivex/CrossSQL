@@ -19,6 +19,12 @@ dependencies {
     androidTestImplementation("com.android.support.test:runner:+")
 }
 
+kotlin {
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of("11"))
+    }
+}
+
 android {
     namespace = group as String
     sourceSets.getByName("main") {
@@ -27,9 +33,10 @@ android {
     sourceSets.getByName("test") {
         kotlin.setSrcDirs(listOf("Tests/${group}Tests"))
     }
-    sourceSets.getByName("androidTest") {
-        kotlin.setSrcDirs(listOf("Tests/${group}Tests"))
-    }
+    // not yet working
+    //sourceSets.getByName("androidTest") {
+    //    kotlin.setSrcDirs(listOf("Tests/${group}Tests"))
+    //}
     compileSdkVersion(33)
     defaultConfig {
         minSdk = 24
