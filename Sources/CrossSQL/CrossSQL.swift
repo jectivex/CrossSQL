@@ -443,7 +443,7 @@ public final class Cursor {
 
     public func getBlob(column: Int32) -> Data {
         #if SKIP
-        return self.cursor.getBlob(column)
+        return Data(self.cursor.getBlob(column))
         #else
         if let pointer = sqlite3_column_blob(handle, Int32(column)) {
             let length = Int(sqlite3_column_bytes(handle, Int32(column)))
@@ -566,7 +566,7 @@ extension Connection {
         assert(conn.closed == true)
 
         // .init not being resolved for some reason…
-        
+
         // let dataFile: Data = try Data.init(contentsOfFile: dbname)
         // assert(dataFile.count > 1024) // 8192 on Darwin, 12288 for Android
 

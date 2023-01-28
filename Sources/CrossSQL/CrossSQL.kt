@@ -289,7 +289,7 @@ class Cursor {
     open fun getString(column: Int): String = this.cursor.getString(column)
 
     open fun getBlob(column: Int): Data {
-        return this.cursor.getBlob(column)
+        return Data(this.cursor.getBlob(column))
     }
 
     private fun getTypeConstant(column: Int): Int = this.cursor.getType(column)
