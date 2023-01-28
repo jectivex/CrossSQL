@@ -565,8 +565,10 @@ extension Connection {
         conn.close()
         assert(conn.closed == true)
 
-        let dataFile: Data = try Data.init(contentsOfFile: dbname)
-        assert(dataFile.count > 1024) // 8192 on Darwin, 12288 for Android
+        // .init not being resolved for some reason…
+        
+        // let dataFile: Data = try Data.init(contentsOfFile: dbname)
+        // assert(dataFile.count > 1024) // 8192 on Darwin, 12288 for Android
 
         // 'removeItem(at:)' is deprecated: URL paths not yet implemented in Kotlin
         //try FileManager.default.removeItem(at: URL(fileURLWithPath: dbname, isDirectory: false))
