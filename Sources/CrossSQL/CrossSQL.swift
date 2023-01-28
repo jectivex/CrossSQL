@@ -112,7 +112,7 @@ public final class Connection {
     ///   - index: the index of the matching '?' parameter, which starts at 1
     fileprivate func bind(handle: Cursor.Handle?, parameter: SQLValue, index: Int32) throws {
         switch parameter {
-        case .null:
+        case .nul:
             try self.check(resultOf: sqlite3_bind_null(handle, index))
         case let .text(string: string):
             try self.check(resultOf: sqlite3_bind_text(handle, index, string, -1, SQLITE_TRANSIENT))
@@ -143,7 +143,7 @@ let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 #endif
 
 public enum SQLValue {
-    case null
+    case nul
     case text(_ string: String)
     case integer(_ int: Int64)
     case float(_ double: Double)
@@ -152,7 +152,7 @@ public enum SQLValue {
     var columnType: ColumnType {
         // warnings about let pattern with no effect and default bot needed works around Grphyon translation mixed associated type w/ empty enum
         switch self {
-        case .null:
+        case .nul:
             return ColumnType.null
         case let .text(string: _):
             return ColumnType.text
@@ -169,7 +169,7 @@ public enum SQLValue {
 
     func toBindArg() -> Any? {
         switch self {
-        case .null:
+        case .nul:
             return nil
         case let .text(string: str):
             return str
@@ -186,7 +186,7 @@ public enum SQLValue {
 
     func toBindString() -> String? {
         switch self {
-        case .null:
+        case .nul:
             return nil
         case let .text(string: str):
             return str
@@ -344,7 +344,7 @@ public final class Cursor {
     public func getValue(column: Int32) -> SQLValue {
         switch getColumnType(column: column) {
         case .null:
-            return .null
+            return .nul
         case .text:
             return .text(getString(column: column))
         case .integer:
@@ -352,9 +352,9 @@ public final class Cursor {
         case .float:
             return .float(getDouble(column: column))
         case .blob:
-            return .null // .blob(data: getBlob(column: column)) // introduces compile error w/ Gryphon: “error: Unable to get closure type (failed to translate SwiftSyntax node).”
+            return .nul // .blob(data: getBlob(column: column)) // introduces compile error w/ Gryphon: “error: Unable to get closure type (failed to translate SwiftSyntax node).”
         default:
-            return .null
+            return .nul
         }
     }
 

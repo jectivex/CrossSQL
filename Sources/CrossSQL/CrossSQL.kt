@@ -38,41 +38,41 @@ class Connection {
 }
 
 sealed class SQLValue {
-    class Null: SQLValue()
-    class Text(val string: String): SQLValue()
-    class Integer(val int: Long): SQLValue()
-    class Float(val double: Double): SQLValue()
-    class Blob(val data: Data): SQLValue()
+    class nul: SQLValue()
+    class text(val string: String): SQLValue()
+    class integer(val int: Long): SQLValue()
+    class float(val double: Double): SQLValue()
+    class blob(val data: Data): SQLValue()
 
     internal val columnType: ColumnType
         get() {
             // warnings about let pattern with no effect and default bot needed works around Grphyon translation mixed associated type w/ empty enum
             return when (this) {
-                is SQLValue.Null -> ColumnType.NULL
-                is SQLValue.Text -> ColumnType.TEXT
-                is SQLValue.Integer -> ColumnType.INTEGER
-                is SQLValue.Float -> ColumnType.FLOAT
-                is SQLValue.Blob -> ColumnType.BLOB
+                is SQLValue.nul -> ColumnType.NULL
+                is SQLValue.text -> ColumnType.TEXT
+                is SQLValue.integer -> ColumnType.INTEGER
+                is SQLValue.float -> ColumnType.FLOAT
+                is SQLValue.blob -> ColumnType.BLOB
                 else -> ColumnType.NULL
             }
         }
 
     fun toBindArg(): Any? {
         return when (this) {
-            is SQLValue.Null -> null
-            is SQLValue.Text -> {
+            is SQLValue.nul -> null
+            is SQLValue.text -> {
                 val str: String = this.string
                 str
             }
-            is SQLValue.Integer -> {
+            is SQLValue.integer -> {
                 val num: Long = this.int
                 num
             }
-            is SQLValue.Float -> {
+            is SQLValue.float -> {
                 val dbl: Double = this.double
                 dbl
             }
-            is SQLValue.Blob -> {
+            is SQLValue.blob -> {
                 val bytes: Data = this.data
                 bytes
             }
@@ -85,20 +85,20 @@ sealed class SQLValue {
 
     fun toBindString(): String? {
         return when (this) {
-            is SQLValue.Null -> null
-            is SQLValue.Text -> {
+            is SQLValue.nul -> null
+            is SQLValue.text -> {
                 val str: String = this.string
                 str
             }
-            is SQLValue.Integer -> {
+            is SQLValue.integer -> {
                 val num: Long = this.int
                 num.toString()
             }
-            is SQLValue.Float -> {
+            is SQLValue.float -> {
                 val dbl: Double = this.double
                 dbl.toString()
             }
-            is SQLValue.Blob -> {
+            is SQLValue.blob -> {
                 val bytes: Data = this.data
                 null
             }
@@ -112,7 +112,7 @@ sealed class SQLValue {
     internal val textValue: String?
         get() {
             return when (this) {
-                is SQLValue.Text -> {
+                is SQLValue.text -> {
                     val str: String = this.string
                     str
                 }
@@ -122,7 +122,7 @@ sealed class SQLValue {
     internal val integerValue: Long?
         get() {
             return when (this) {
-                is SQLValue.Integer -> {
+                is SQLValue.integer -> {
                     val num: Long = this.int
                     num
                 }
@@ -132,7 +132,7 @@ sealed class SQLValue {
     internal val floatValue: Double?
         get() {
             return when (this) {
-                is SQLValue.Float -> {
+                is SQLValue.float -> {
                     val dbl: Double = this.double
                     dbl
                 }
@@ -142,7 +142,7 @@ sealed class SQLValue {
     internal val blobValue: Data?
         get() {
             return when (this) {
-                is SQLValue.Blob -> {
+                is SQLValue.blob -> {
                     val dat: Data = this.data
                     dat
                 }
@@ -204,12 +204,12 @@ class Cursor {
 
     open fun getValue(column: Int): SQLValue {
         return when (getColumnType(column = column)) {
-            ColumnType.NULL -> SQLValue.Null()
-            ColumnType.TEXT -> SQLValue.Text(getString(column = column))
-            ColumnType.INTEGER -> SQLValue.Integer(getInt64(column = column))
-            ColumnType.FLOAT -> SQLValue.Float(getDouble(column = column))
-            ColumnType.BLOB -> SQLValue.Null()
-            else -> SQLValue.Null()
+            ColumnType.NULL -> SQLValue.nul()
+            ColumnType.TEXT -> SQLValue.text(getString(column = column))
+            ColumnType.INTEGER -> SQLValue.integer(getInt64(column = column))
+            ColumnType.FLOAT -> SQLValue.float(getDouble(column = column))
+            ColumnType.BLOB -> SQLValue.nul()
+            else -> SQLValue.nul()
         }
     }
 
@@ -326,11 +326,11 @@ fun Connection.Companion.testDatabase() {
     assert(
         conn.query(sql = "SELECT 3.0/2.0, 4.0*2.5").nextRow(close = true)?.lastOrNull()?.floatValue == 10.0)
     assert(
-        conn.query(sql = "SELECT ?", params = listOf(SQLValue.Text("ABC"))).nextRow(close = true)?.firstOrNull()?.textValue == "ABC")
+        conn.query(sql = "SELECT ?", params = listOf(SQLValue.text("ABC"))).nextRow(close = true)?.firstOrNull()?.textValue == "ABC")
     assert(
         conn.query(
                 sql = "SELECT upper(?), lower(?)",
-                params = listOf(SQLValue.Text("ABC"), SQLValue.Text("XYZ"))).nextRow(
+                params = listOf(SQLValue.text("ABC"), SQLValue.text("XYZ"))).nextRow(
                 close = true)?.lastOrNull()?.textValue == "xyz")
 
     // compiles but AssertionError in Kotlin
@@ -347,7 +347,7 @@ fun Connection.Companion.testDatabase() {
     for (i in 1..10) {
         conn.execute(
             sql = "INSERT INTO FOO VALUES(?, ?, ?)",
-            params = listOf(SQLValue.Text("NAME_" + i.toString()), SQLValue.Integer(i.toLong()), SQLValue.Float(i.toDouble())))
+            params = listOf(SQLValue.text("NAME_" + i.toString()), SQLValue.integer(i.toLong()), SQLValue.float(i.toDouble())))
     }
 
     val cursor: Cursor = conn.query(sql = "SELECT * FROM FOO")
