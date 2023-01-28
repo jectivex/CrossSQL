@@ -6,6 +6,8 @@ import CrossFoundation.*
 
 class Connection {
     companion object {
+        fun open(url: URL, readonly: Boolean = false): Connection = Connection(url.path, readonly)
+
         private fun noop() {
         }
     }
@@ -55,7 +57,7 @@ sealed class SQLValue {
             }
         }
 
-    internal fun toBindArg(): Any? {
+    fun toBindArg(): Any? {
         return when (this) {
             is SQLValue.Null -> null
             is SQLValue.Text -> {
@@ -81,7 +83,7 @@ sealed class SQLValue {
         }
     }
 
-    internal fun toBindString(): String? {
+    fun toBindString(): String? {
         return when (this) {
             is SQLValue.Null -> null
             is SQLValue.Text -> {
@@ -262,6 +264,8 @@ class Cursor {
         return str
     }
 
+    open fun singleValue(): SQLValue? = nextRow(close = true)?.firstOrNull()
+
     open fun nextRow(close: Boolean = false): List<SQLValue>? {
         try {
             if (next() == false) {
@@ -304,7 +308,7 @@ class Cursor {
     // TODO: finalize { close() }
 }
 
-internal fun Connection.Companion.testDatabase() {
+fun Connection.Companion.testDatabase() {
     // FIXME: cannot determine type
     //let random: Random = Random.shared
     //let rnd: Double = (random as Random).randomDouble()

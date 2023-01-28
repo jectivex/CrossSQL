@@ -25,6 +25,11 @@ public final class Connection {
     /// Whether the connection to the database is closed or not
     public private(set) var closed = false
 
+    /// Creates a connection from the given URL
+    public static func open(url: URL, readonly: Bool = false) throws -> Connection {
+        try Connection(url.path, readonly: readonly)
+    }
+
     public init(_ filename: String, readonly: Bool = false) throws {
         #if SKIP
         self.db = SQLiteDatabase.openOrCreateDatabase(filename, null, null)
@@ -394,6 +399,11 @@ public final class Cursor {
         }
         str += sep
         return str
+    }
+
+    /// Returns a single value from the query, closing the result set afterwards
+    public func singleValue() throws -> SQLValue? {
+        try nextRow(close: true)?.first
     }
 
     /// Steps to the next row and returns all the values in the row.
