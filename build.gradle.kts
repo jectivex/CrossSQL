@@ -1,7 +1,8 @@
 group = "CrossSQL"
 
 plugins {
-    id("org.jetbrains.kotlin.android") version "1.7.+"
+    kotlin("android") version "1.8.+"
+    kotlin("plugin.serialization") version "1.8.+"
     id("com.android.library") version "7.+"
 }
 
@@ -12,10 +13,10 @@ repositories {
 
 dependencies {
     implementation("CrossFoundation:CrossFoundation:+")
-
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:+")
     testImplementation("org.jetbrains.kotlin:kotlin-test:1.8.+")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:1.8.+")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:+")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.+")
     testImplementation("org.robolectric:robolectric:4.+")
     androidTestImplementation("com.android.support.test:runner:+")
 }
