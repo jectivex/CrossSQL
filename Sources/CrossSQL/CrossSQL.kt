@@ -203,9 +203,9 @@ class Cursor {
     open fun getValue(column: Int): SQLValue {
         return when (getColumnType(column = column)) {
             ColumnType.NULL -> SQLValue.Null()
-            ColumnType.TEXT -> SQLValue.Text(string = getString(column = column))
-            ColumnType.INTEGER -> SQLValue.Integer(int = getInt64(column = column))
-            ColumnType.FLOAT -> SQLValue.Float(double = getDouble(column = column))
+            ColumnType.TEXT -> SQLValue.Text(getString(column = column))
+            ColumnType.INTEGER -> SQLValue.Integer(getInt64(column = column))
+            ColumnType.FLOAT -> SQLValue.Float(getDouble(column = column))
             ColumnType.BLOB -> SQLValue.Null()
             else -> SQLValue.Null()
         }
@@ -322,11 +322,11 @@ internal fun Connection.Companion.testDatabase() {
     assert(
         conn.query(sql = "SELECT 3.0/2.0, 4.0*2.5").nextRow(close = true)?.lastOrNull()?.floatValue == 10.0)
     assert(
-        conn.query(sql = "SELECT ?", params = listOf(SQLValue.Text(string = "ABC"))).nextRow(close = true)?.firstOrNull()?.textValue == "ABC")
+        conn.query(sql = "SELECT ?", params = listOf(SQLValue.Text("ABC"))).nextRow(close = true)?.firstOrNull()?.textValue == "ABC")
     assert(
         conn.query(
                 sql = "SELECT upper(?), lower(?)",
-                params = listOf(SQLValue.Text(string = "ABC"), SQLValue.Text(string = "XYZ"))).nextRow(
+                params = listOf(SQLValue.Text("ABC"), SQLValue.Text("XYZ"))).nextRow(
                 close = true)?.lastOrNull()?.textValue == "xyz")
 
     // compiles but AssertionError in Kotlin
@@ -343,7 +343,7 @@ internal fun Connection.Companion.testDatabase() {
     for (i in 1..10) {
         conn.execute(
             sql = "INSERT INTO FOO VALUES(?, ?, ?)",
-            params = listOf(SQLValue.Text(string = "NAME_" + i.toString()), SQLValue.Integer(int = i.toLong()), SQLValue.Float(double = i.toDouble())))
+            params = listOf(SQLValue.Text("NAME_" + i.toString()), SQLValue.Integer(i.toLong()), SQLValue.Float(i.toDouble())))
     }
 
     val cursor: Cursor = conn.query(sql = "SELECT * FROM FOO")
@@ -385,7 +385,7 @@ internal fun Connection.Companion.testDatabase() {
     conn.close()
     assert(conn.closed == true)
 
-    val dataFile: Data = readData(dbname)
+    val dataFile: Data = Data.init(dbname)
 
     assert(dataFile.count > 1024)
 

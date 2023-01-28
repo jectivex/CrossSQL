@@ -14,7 +14,7 @@ import SQLite3
 
 /// A connection to SQLite.
 public final class Connection {
-    #if os(Android)
+    #if SKIP
     public let db: android.database.sqlite.SQLiteDatabase
     #else
     public typealias Handle = OpaquePointer
@@ -26,7 +26,7 @@ public final class Connection {
     public private(set) var closed = false
 
     public init(_ filename: String, readonly: Bool = false) throws {
-        #if os(Android)
+        #if SKIP
         self.db = SQLiteDatabase.openOrCreateDatabase(filename, null, null)
         #else
         let flags = readonly ? SQLITE_OPEN_READONLY : (SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE)
@@ -35,7 +35,7 @@ public final class Connection {
     }
 
     // FIXME: no deinit support in Kotlin (“Unknown declaration (failed to translate SwiftSyntax node).”)
-    #if os(Android)
+    #if SKIP
 
     #else
     deinit {
@@ -46,7 +46,7 @@ public final class Connection {
     /// Closes the connection to the database
     func close() {
         if !closed {
-            #if os(Android)
+            #if SKIP
             self.db.close()
             #else
             sqlite3_close(handle)
@@ -57,7 +57,7 @@ public final class Connection {
 
     /// Executes a single SQL statement.
     public func execute(sql: String, params: [SQLValue] = []) throws {
-        #if os(Android)
+        #if SKIP
         let bindArgs = params.map { $0.toBindArg() }
         db.execSQL(sql, bindArgs.toTypedArray())
         #else
@@ -70,7 +70,7 @@ public final class Connection {
         #endif
     }
 
-    #if os(Android)
+    #if SKIP
 
     #else
     @discardableResult fileprivate func check(resultOf resultCode: Int32) throws -> Int32 {
@@ -97,7 +97,7 @@ public final class Connection {
     private static func noop() throws {
     }
 
-    #if os(Android)
+    #if SKIP
 
     #else
     /// Binds the given parameter at the given index.
@@ -130,7 +130,7 @@ public final class Connection {
 }
 
 
-#if os(Android)
+#if SKIP
 
 #else
 // let SQLITE_STATIC = unsafeBitCast(0, sqlite3_destructor_type.self)
@@ -139,10 +139,10 @@ let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 public enum SQLValue {
     case null
-    case text(string: String)
-    case integer(int: Int64)
-    case float(double: Double)
-    case blob(data: Data)
+    case text(_ string: String)
+    case integer(_ int: Int64)
+    case float(_ double: Double)
+    case blob(_ data: Data)
 
     var columnType: ColumnType {
         // warnings about let pattern with no effect and default bot needed works around Grphyon translation mixed associated type w/ empty enum
@@ -264,7 +264,7 @@ public enum ColumnType : Int32 {
 public final class Cursor {
     fileprivate let connection: Connection
 
-    #if os(Android)
+    #if SKIP
     fileprivate var cursor: android.database.Cursor
     #else
     typealias Handle = OpaquePointer
@@ -277,7 +277,7 @@ public final class Cursor {
     fileprivate init(_ connection: Connection, _ SQL: String, params: [SQLValue]) throws {
         self.connection = connection
 
-        #if os(Android)
+        #if SKIP
         let bindArgs: [String?] = params.map { $0.toBindString() }
         self.cursor = connection.db.rawQuery(SQL, bindArgs.toTypedArray())
         #else
@@ -289,7 +289,7 @@ public final class Cursor {
     }
 
     var columnCount: Int32 {
-        #if os(Android)
+        #if SKIP
         self.cursor.getColumnCount()
         #else
         sqlite3_column_count(handle)
@@ -298,7 +298,7 @@ public final class Cursor {
 
     /// Moves to the next row in the result set, returning `false` if there are no more rows to traverse.
     func next() throws -> Bool {
-        #if os(Android)
+        #if SKIP
         self.cursor.moveToNext()
         #else
         try connection.check(resultOf: sqlite3_step(handle)) == SQLITE_ROW
@@ -307,7 +307,7 @@ public final class Cursor {
 
     /// Returns the name of the column at the given zero-based index.
     public func getColumnName(column: Int32) -> String {
-        #if os(Android)
+        #if SKIP
         self.cursor.getColumnName(column)
         #else
         String(cString: sqlite3_column_name(handle, column))
@@ -341,11 +341,11 @@ public final class Cursor {
         case .null:
             return .null
         case .text:
-            return .text(string: getString(column: column))
+            return .text(getString(column: column))
         case .integer:
-            return .integer(int: getInt64(column: column))
+            return .integer(getInt64(column: column))
         case .float:
-            return .float(double: getDouble(column: column))
+            return .float(getDouble(column: column))
         case .blob:
             return .null // .blob(data: getBlob(column: column)) // introduces compile error w/ Gryphon: “error: Unable to get closure type (failed to translate SwiftSyntax node).”
         default:
@@ -418,7 +418,7 @@ public final class Cursor {
     }
 
     public func getDouble(column: Int32) -> Double {
-        #if os(Android)
+        #if SKIP
         self.cursor.getDouble(column)
         #else
         sqlite3_column_double(handle, column)
@@ -426,7 +426,7 @@ public final class Cursor {
     }
 
     public func getInt64(column: Int32) -> Int64 {
-        #if os(Android)
+        #if SKIP
         self.cursor.getLong(column)
         #else
         sqlite3_column_int64(handle, column)
@@ -434,7 +434,7 @@ public final class Cursor {
     }
 
     public func getString(column: Int32) -> String {
-        #if os(Android)
+        #if SKIP
         self.cursor.getString(column)
         #else
         String(cString: UnsafePointer(sqlite3_column_text(handle, Int32(column))))
@@ -442,7 +442,7 @@ public final class Cursor {
     }
 
     public func getBlob(column: Int32) -> Data {
-        #if os(Android)
+        #if SKIP
         return self.cursor.getBlob(column)
         #else
         if let pointer = sqlite3_column_blob(handle, Int32(column)) {
@@ -457,7 +457,7 @@ public final class Cursor {
     }
 
     private func getTypeConstant(column: Int32) -> Int32 {
-        #if os(Android)
+        #if SKIP
         self.cursor.getType(column)
         #else
         sqlite3_column_type(handle, column)
@@ -466,7 +466,7 @@ public final class Cursor {
 
     func close() throws {
         if !closed {
-            #if os(Android)
+            #if SKIP
             self.cursor.close()
             #else
             try connection.check(resultOf: sqlite3_finalize(handle))
@@ -475,7 +475,7 @@ public final class Cursor {
         closed = true
     }
 
-    #if os(Android)
+    #if SKIP
     // TODO: finalize { close() }
     #else
     deinit {
@@ -503,11 +503,11 @@ extension Connection {
         assert(try! conn.query(sql: "SELECT lower('ABC')").nextRow(close: true)?.first?.textValue == "abc")
         assert(try! conn.query(sql: "SELECT 3.0/2.0, 4.0*2.5").nextRow(close: true)?.last?.floatValue == 10.0)
 
-        assert(try! conn.query(sql: "SELECT ?", params: [.text(string: "ABC")]).nextRow(close: true)?.first?.textValue == "ABC")
-        assert(try! conn.query(sql: "SELECT upper(?), lower(?)", params: [.text(string: "ABC"), .text(string: "XYZ")]).nextRow(close: true)?.last?.textValue == "xyz")
+        assert(try! conn.query(sql: "SELECT ?", params: [.text("ABC")]).nextRow(close: true)?.first?.textValue == "ABC")
+        assert(try! conn.query(sql: "SELECT upper(?), lower(?)", params: [.text("ABC"), .text("XYZ")]).nextRow(close: true)?.last?.textValue == "xyz")
 
         // gryphon ignore
-        assert(try! conn.query(sql: "SELECT ?", params: [.float(double: 1.5)]).nextRow(close: true)?.last?.floatValue == 1.5) // compiles but AssertionError in Kotlin
+        assert(try! conn.query(sql: "SELECT ?", params: [.float(1.5)]).nextRow(close: true)?.last?.floatValue == 1.5) // compiles but AssertionError in Kotlin
 
         // gryphon ignore
         assert(try! conn.query(sql: "SELECT 1").nextRow(close: true)?.first?.integerValue == 1) // Kotlin error: “Operator '==' cannot be applied to 'Long?' and 'Int'”
@@ -520,7 +520,7 @@ extension Connection {
 
         try conn.execute(sql: "CREATE TABLE FOO(NAME VARCHAR, NUM INTEGER, DBL FLOAT)")
         for i in 1...10 {
-            try conn.execute(sql: "INSERT INTO FOO VALUES(?, ?, ?)", params: [.text(string: "NAME_" + i.description), .integer(int: /* gryphon value: i.toLong() */ Int64(i)), .float(double: Double(i))])
+            try conn.execute(sql: "INSERT INTO FOO VALUES(?, ?, ?)", params: [.text("NAME_" + i.description), .integer(/* gryphon value: i.toLong() */ Int64(i)), .float(Double(i))])
         }
 
         let cursor = try conn.query(sql: "SELECT * FROM FOO")
@@ -565,7 +565,7 @@ extension Connection {
         conn.close()
         assert(conn.closed == true)
 
-        let dataFile: Data = try readData(fromPath: dbname)
+        let dataFile: Data = try Data.init(contentsOfFile: dbname)
         assert(dataFile.count > 1024) // 8192 on Darwin, 12288 for Android
 
         // 'removeItem(at:)' is deprecated: URL paths not yet implemented in Kotlin
