@@ -13,9 +13,10 @@ repositories {
 dependencies {
     implementation("CrossFoundation:CrossFoundation:+")
 
-    testImplementation("junit:junit:4.+")
-    testImplementation("org.robolectric:robolectric:4.+")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:1.8.+")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:1.8.+")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:+")
+    testImplementation("org.robolectric:robolectric:4.+")
     androidTestImplementation("com.android.support.test:runner:+")
 }
 
