@@ -2,7 +2,6 @@
 // GENERATED FILE; EDITS WILL BE OVERWRITTEN
 // =========================================
 package CrossSQL
-
 import android.database.*
 import android.database.sqlite.*
 import CrossFoundation.*
