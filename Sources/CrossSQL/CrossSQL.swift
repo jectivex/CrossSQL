@@ -143,6 +143,7 @@ let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 #endif
 
 public enum SQLValue {
+    // we would rather call this "null", but the transplier then turns it into "class null", which is illegal in Kotlin
     case nul
     case text(_ string: String)
     case integer(_ int: Int64)
