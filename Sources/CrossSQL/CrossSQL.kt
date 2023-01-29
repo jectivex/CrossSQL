@@ -1,3 +1,6 @@
+// =========================================
+// GENERATED FILE; EDITS WILL BE OVERWRITTEN
+// =========================================
 package CrossSQL
 
 import android.database.*
@@ -303,7 +306,11 @@ fun Connection.Companion.testDatabase() {
     dbg("connecting to: " + dbname)
 
     val conn: Connection = Connection(filename = dbname)
+    val version: String? = conn.query(sql = "select sqlite_version()").nextRow(close = true)?.firstOrNull()?.textValue
 
+    dbg("SQLite version: " + (version ?: ""))
+
+    // Kotlin: 3.28.0 Swift: 3.39.5
     assert(conn.query(sql = "SELECT 1.0").nextRow(close = true)?.firstOrNull()?.floatValue == 1.0)
     assert(conn.query(sql = "SELECT 'ABC'").nextRow(close = true)?.firstOrNull()?.textValue == "ABC")
     assert(

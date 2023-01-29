@@ -493,6 +493,9 @@ extension Connection {
         dbg("connecting to: " + dbname)
         let conn = try Connection(dbname)
 
+        let version = try conn.query(sql: "select sqlite_version()").nextRow(close: true)?.first?.textValue
+        dbg("SQLite version: " + (version ?? "")) // Kotlin: 3.28.0 Swift: 3.39.5
+
         assert(try! conn.query(sql: "SELECT 1.0").nextRow(close: true)?.first?.floatValue == 1.0)
         assert(try! conn.query(sql: "SELECT 'ABC'").nextRow(close: true)?.first?.textValue == "ABC")
         assert(try! conn.query(sql: "SELECT lower('ABC')").nextRow(close: true)?.first?.textValue == "abc")

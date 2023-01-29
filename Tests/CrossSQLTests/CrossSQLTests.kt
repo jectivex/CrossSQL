@@ -1,3 +1,6 @@
+// =========================================
+// GENERATED FILE; EDITS WILL BE OVERWRITTEN
+// =========================================
 package CrossSQL
 
 import CrossFoundation.*
