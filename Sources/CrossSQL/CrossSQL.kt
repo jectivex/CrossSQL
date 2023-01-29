@@ -7,16 +7,16 @@ import CrossFoundation.*
 class Connection {
     companion object {
         fun open(url: URL, readonly: Boolean = false): Connection = Connection(url.path, readonly)
-
-        private fun noop() {
-        }
     }
 
     val db: android.database.sqlite.SQLiteDatabase
     open var closed: Boolean = false
 
     constructor(filename: String, readonly: Boolean = false) {
-        this.db = SQLiteDatabase.openOrCreateDatabase(filename, null, null)
+        this.db = SQLiteDatabase.openDatabase(
+            filename,
+            null,
+            if (readonly) { SQLiteDatabase.OPEN_READONLY } else { (SQLiteDatabase.CREATE_IF_NECESSARY or SQLiteDatabase.OPEN_READWRITE) })
     }
 
     // FIXME: no deinit support in Kotlin (“Unknown declaration (failed to translate SwiftSyntax node).”)
@@ -33,8 +33,6 @@ class Connection {
     }
 
     open fun query(sql: String, params: List<SQLValue> = listOf()): Cursor = Cursor(connection = this, SQL = sql, params = params)
-
-    // some random static function is needed to get Gryphon to generate a Companion object to extend (below)
 }
 
 sealed class SQLValue {
@@ -53,7 +51,6 @@ sealed class SQLValue {
                 is SQLValue.integer -> ColumnType.INTEGER
                 is SQLValue.float -> ColumnType.FLOAT
                 is SQLValue.blob -> ColumnType.BLOB
-                else -> ColumnType.NULL
             }
         }
 
@@ -76,10 +73,6 @@ sealed class SQLValue {
                 val bytes: Data = this.data
                 bytes
             }
-            else -> {
-                // needed for Kotlin when mixed associated type w/ empty enum
-                null
-            }
         }
     }
 
@@ -98,14 +91,7 @@ sealed class SQLValue {
                 val dbl: Double = this.double
                 dbl.toString()
             }
-            is SQLValue.blob -> {
-                val bytes: Data = this.data
-                null
-            }
-            else -> {
-                // needed for Kotlin when mixed associated type w/ empty enum
-                null
-            }
+            is SQLValue.blob -> null
         }
     }
 
@@ -209,7 +195,6 @@ class Cursor {
             ColumnType.INTEGER -> SQLValue.integer(getInt64(column = column))
             ColumnType.FLOAT -> SQLValue.float(getDouble(column = column))
             ColumnType.BLOB -> SQLValue.nul()
-            else -> SQLValue.nul()
         }
     }
 

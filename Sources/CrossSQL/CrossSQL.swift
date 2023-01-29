@@ -32,7 +32,7 @@ public final class Connection {
 
     public init(_ filename: String, readonly: Bool = false) throws {
         #if SKIP
-        self.db = SQLiteDatabase.openOrCreateDatabase(filename, null, null)
+        self.db = SQLiteDatabase.openDatabase(filename, null, readonly ? SQLiteDatabase.OPEN_READONLY : (SQLiteDatabase.CREATE_IF_NECESSARY | SQLiteDatabase.OPEN_READWRITE))
         #else
         let flags = readonly ? SQLITE_OPEN_READONLY : (SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE)
         try check(resultOf: sqlite3_open_v2(filename, &_handle, flags | SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_URI, nil))
@@ -97,11 +97,6 @@ public final class Connection {
         try Cursor(self, sql, params: params)
     }
 
-
-    // some random static function is needed to get Gryphon to generate a Companion object to extend (below)
-    private static func noop() throws {
-    }
-
     #if SKIP
 
     #else
@@ -129,9 +124,6 @@ public final class Connection {
        }
     }
     #endif
-
-
-
 }
 
 
@@ -155,16 +147,14 @@ public enum SQLValue {
         switch self {
         case .nul:
             return ColumnType.null
-        case let .text(string: _):
+        case .text(string: _):
             return ColumnType.text
-        case let .integer(int: _):
+        case .integer(int: _):
             return ColumnType.integer
-        case let .float(double: _):
+        case .float(double: _):
             return ColumnType.float
-        case let .blob(data: _):
+        case .blob(data: _):
             return ColumnType.blob
-        default:
-            return ColumnType.null
         }
     }
 
@@ -180,8 +170,6 @@ public enum SQLValue {
             return dbl
         case let .blob(data: bytes):
             return bytes
-        default: // needed for Kotlin when mixed associated type w/ empty enum
-            return nil
         }
     }
 
@@ -195,10 +183,8 @@ public enum SQLValue {
             return num.description
         case let .float(double: dbl):
             return dbl.description
-        case let .blob(data: bytes):
+        case .blob(data: _):
             return nil // bytes.description // mis-transpiles
-        default: // needed for Kotlin when mixed associated type w/ empty enum
-            return nil
         }
     }
 
@@ -354,8 +340,6 @@ public final class Cursor {
             return .float(getDouble(column: column))
         case .blob:
             return .nul // .blob(data: getBlob(column: column)) // introduces compile error w/ Gryphon: “error: Unable to get closure type (failed to translate SwiftSyntax node).”
-        default:
-            return .nul
         }
     }
 
