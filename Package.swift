@@ -19,7 +19,7 @@ let package = Package(
             "CrossFoundation",
         ], resources: [.process("i18n"), .copy("Resources")],
         swiftSettings: [
-            .unsafeFlags(["-emit-symbol-graph", "-emit-symbol-graph-dir", ".build", "-symbol-graph-minimum-access-level", "internal"], .when(configuration: .debug)),
+            .unsafeFlags(["-emit-symbol-graph", "-include-spi-symbols", "-emit-symbol-graph-dir", ".build", "-symbol-graph-minimum-access-level", "internal"], .when(platforms: [.macOS, .linux], configuration: .debug)),
         ]),
         .testTarget(name: "CrossSQLTests", dependencies: [
             "CrossSQL",
